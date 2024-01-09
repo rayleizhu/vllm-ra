@@ -98,12 +98,15 @@ class OPTAttention(nn.Module):
         hidden_states: torch.Tensor,
         kv_cache: KVCache,
         input_metadata: InputMetadata,
+        prefix_kv_cache
     ) -> torch.Tensor:
         qkv, _ = self.qkv_proj(hidden_states)
         q, k, v = qkv.chunk(chunks=3, dim=-1)
         key_cache, value_cache = kv_cache
+        prefix_key_cache, prefix_value_cache = prefix_kv_cache
         attn_output = self.attn(q, k, v, key_cache, value_cache,
-                                input_metadata)
+                                input_metadata,
+                                prefix_key_cache, prefix_value_cache)
         output, _ = self.out_proj(attn_output)
         return output
 
@@ -153,6 +156,7 @@ class OPTDecoderLayer(nn.Module):
         hidden_states: torch.Tensor,
         kv_cache: KVCache,
         input_metadata: InputMetadata,
+        prefix_kv_cache: KVCache
     ) -> torch.Tensor:
         # Self Attention
         residual = hidden_states
@@ -161,7 +165,9 @@ class OPTDecoderLayer(nn.Module):
             hidden_states = self.self_attn_layer_norm(hidden_states)
         hidden_states = self.self_attn(hidden_states=hidden_states,
                                        kv_cache=kv_cache,
-                                       input_metadata=input_metadata)
+                                       input_metadata=input_metadata,
+                                       prefix_kv_cache=prefix_kv_cache
+                                       )
         hidden_states = residual + hidden_states
         # 350m applies layer norm AFTER attention
         if not self.do_layer_norm_before:
@@ -242,6 +248,7 @@ class OPTDecoder(nn.Module):
         positions: torch.Tensor,
         kv_caches: List[KVCache],
         input_metadata: InputMetadata,
+        prefix_kv_caches: List[KVCache]
     ) -> torch.Tensor:
         inputs_embeds = self.embed_tokens(input_ids)
         pos_embeds = self.embed_positions(positions)
@@ -251,7 +258,8 @@ class OPTDecoder(nn.Module):
 
         for i in range(len(self.layers)):
             layer = self.layers[i]
-            hidden_states = layer(hidden_states, kv_caches[i], input_metadata)
+            hidden_states = layer(hidden_states, kv_caches[i], input_metadata,
+                                  prefix_kv_caches[i])
 
         if self.final_layer_norm is not None:
             hidden_states = self.final_layer_norm(hidden_states)
@@ -276,8 +284,9 @@ class OPTModel(nn.Module):
         positions: torch.Tensor,
         kv_caches: List[KVCache],
         input_metadata: InputMetadata,
+        prefix_kv_caches: List[KVCache]
     ) -> torch.Tensor:
-        return self.decoder(input_ids, positions, kv_caches, input_metadata)
+        return self.decoder(input_ids, positions, kv_caches, input_metadata, prefix_kv_caches)
 
 
 class OPTForCausalLM(nn.Module):
@@ -300,9 +309,10 @@ class OPTForCausalLM(nn.Module):
         positions: torch.Tensor,
         kv_caches: List[KVCache],
         input_metadata: InputMetadata,
+        prefix_kv_caches: List[KVCache]
     ) -> torch.Tensor:
         hidden_states = self.model(input_ids, positions, kv_caches,
-                                   input_metadata)
+                                   input_metadata, prefix_kv_caches)
         return hidden_states
 
     def sample(

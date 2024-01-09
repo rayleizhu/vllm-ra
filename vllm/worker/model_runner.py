@@ -56,6 +56,9 @@ class ModelRunner:
         # cache in_wsl result
         self.in_wsl = in_wsl()
 
+        # Set during fill prefix kv cache
+        self.prefix_len:int = 0
+
     def load_model(self) -> None:
         self.model = get_model(self.model_config)
 
@@ -91,7 +94,7 @@ class ModelRunner:
             input_tokens.append(prompt_tokens)
             # NOTE(woosuk): Here we assume that the first token in the prompt
             # is always the first token in the sequence.
-            input_positions.append(list(range(prompt_len)))
+            input_positions.append(list(range(self.prefix_len, self.prefix_len+prompt_len)))
 
             if seq_group_metadata.block_tables is None:
                 # During memory profiling, the block tables are not initialized
@@ -121,6 +124,7 @@ class ModelRunner:
                 slot_mapping[-1].append(slot)
 
         max_prompt_len = max(prompt_lens)
+        # append paddings to align the max length
         input_tokens = _make_tensor_with_pad(input_tokens,
                                              max_prompt_len,
                                              pad=0,
@@ -141,6 +145,7 @@ class ModelRunner:
             context_lens=None,
             block_tables=None,
             use_cuda_graph=False,
+            prefix_length=self.prefix_len
         )
         return input_tokens, input_positions, input_metadata
 
@@ -166,7 +171,7 @@ class ModelRunner:
 
                 seq_len = seq_data.get_len()
                 position = seq_len - 1
-                input_positions.append([position])
+                input_positions.append([position + self.prefix_len])
 
                 context_len = seq_len if self.sliding_window is None else min(
                     seq_len, self.sliding_window)
@@ -253,6 +258,7 @@ class ModelRunner:
             context_lens=context_lens,
             block_tables=block_tables,
             use_cuda_graph=use_captured_graph,
+            prefix_length=self.prefix_len
         )
         return input_tokens, input_positions, input_metadata
 
@@ -331,6 +337,7 @@ class ModelRunner:
         self,
         seq_group_metadata_list: List[SequenceGroupMetadata],
         kv_caches: List[Tuple[torch.Tensor, torch.Tensor]],
+        prefix_kv_caches: List[Tuple[torch.Tensor, torch.Tensor]]
     ) -> SamplerOutput:
         # NOTE: We assume that all sequences in the group are all prompts or
         # all decodes.
@@ -354,6 +361,7 @@ class ModelRunner:
             positions=input_positions,
             kv_caches=kv_caches,
             input_metadata=input_metadata,
+            prefix_kv_caches=prefix_kv_caches
         )
 
         sampling_metadata = self._prepare_sample(seq_group_metadata_list,
@@ -393,12 +401,72 @@ class ModelRunner:
         # Run the model with the dummy inputs.
         num_layers = self.model_config.get_num_layers(self.parallel_config)
         kv_caches = [(None, None)] * num_layers
-        self.execute_model(seqs, kv_caches)
+        # TODO (ray): check if using placeholder affects the memory usage
+        prefix_kv_caches = [(None, None)] * num_layers
+        self.execute_model(seqs, kv_caches, prefix_kv_caches=prefix_kv_caches)
         torch.cuda.synchronize()
         return
+    
+    # @torch.inference_mode()
+    # def fill_prefix_kv_cache(self, prefix_token_ids:List[int],
+    #         prefix_kv_caches:List[Tuple(torch.Tensor, torch.Tensor)]):
+    #     # TODO(ray): call model.forward directly? remove sampling?
+    #     vocab_size = self.model_config.get_vocab_size()
+    #     sampling_params = SamplingParams(top_p=0.99, top_k=vocab_size - 1)
+
+    #     # construct input data
+    #     seq_data = SequenceData(prefix_token_ids)
+    #     seq = SequenceGroupMetadata(
+    #         request_id=str(0),
+    #         is_prompt=True,
+    #         seq_data={0:seq_data},
+    #         sampling_params=sampling_params,
+    #         block_tables=None,
+    #     )
+    #     # Run the model with the dummy caches.
+    #     num_layers = self.model_config.get_num_layers(self.parallel_config)
+    #     kv_caches = [(None, None)] * num_layers
+    #     self.execute_model([seq], kv_caches, prefix_kv_caches=prefix_kv_caches)
+    #     self.prefix_len = len(prefix_token_ids)
 
     @torch.inference_mode()
-    def capture_model(self, kv_caches: List[KVCache]) -> None:
+    def fill_prefix_kv_cache(self, prefix_token_ids:List[int],
+            prefix_kv_caches:List[Tuple[torch.Tensor, torch.Tensor]])->None:
+        _prefix_length = len(prefix_token_ids)
+        num_layers = self.model_config.get_num_layers(self.parallel_config)
+        assert _prefix_length > 0
+        assert (len(prefix_kv_caches) == num_layers) and \
+                (prefix_kv_caches[0][0] is not None)
+        # construct input data
+        input_tokens = torch.tensor(
+            [prefix_token_ids],
+            dtype=torch.long, device="cuda") # (1, prefix_len)
+        input_positions = torch.tensor(
+            [list(range(_prefix_length))],
+            dtype=torch.long, device="cuda") # (1, prefix_len)
+        input_metadata = InputMetadata(
+            prompt_lens=[_prefix_length],
+            slot_mapping=None, # no need to fill paged kv cache
+            max_context_len=None, # PagedAttention is not ativcated
+            context_lens=None, # PagedAttention is not ativcated
+            block_tables=None, # PagedAttention is not ativcated
+            use_cuda_graph=False, # cuda graph is used for generation phase only
+            prefix_length=-1 # use -1 to notify this is prefix kv cache filling 
+        )
+        # this forward is for prefix kv cache filling only
+        # no need to do sampling
+        _ = self.model(
+            input_ids=input_tokens,
+            positions=input_positions,
+            kv_caches=[(None, None)] * num_layers,
+            input_metadata=input_metadata,
+            prefix_kv_caches=prefix_kv_caches
+        )
+        # record the prefix length
+        self.prefix_len = _prefix_length
+
+    @torch.inference_mode()
+    def capture_model(self, kv_caches: List[KVCache], prefix_kv_caches: List[KVCache]) -> None:
         assert not self.model_config.enforce_eager
         logger.info("Capturing the model for CUDA graphs. This may lead to "
                     "unexpected consequences if the model is not static. To "
@@ -421,6 +489,12 @@ class ModelRunner:
 
         # NOTE: Capturing the largest batch size first may help reduce the
         # memory usage of CUDA graph.
+
+        # TODO (ray): check if this value is correct
+        # should I set it the max contxt length of the model?
+        # or any value > 0 is fine?
+        prefix_length_for_capture = self.max_context_len_to_capture \
+            if self.model_config.enable_relay_attention else 0 # 0 will disable relay attention
         for batch_size in reversed(_BATCH_SIZES_TO_CAPTURE):
             # Create dummy input_metadata.
             input_metadata = InputMetadata(
@@ -430,6 +504,7 @@ class ModelRunner:
                 context_lens=context_lens[:batch_size],
                 block_tables=block_tables[:batch_size],
                 use_cuda_graph=True,
+                prefix_length=prefix_length_for_capture,
             )
 
             graph_runner = CUDAGraphRunner(self.model)
@@ -438,6 +513,7 @@ class ModelRunner:
                 input_positions[:batch_size],
                 kv_caches,
                 input_metadata,
+                prefix_kv_caches,
                 memory_pool=self.graph_memory_pool,
             )
             self.graph_memory_pool = graph_runner.graph.pool()
@@ -463,6 +539,7 @@ class CUDAGraphRunner:
         positions: torch.Tensor,
         kv_caches: List[KVCache],
         input_metadata: InputMetadata,
+        prefix_kv_caches: List[KVCache],
         memory_pool,
     ) -> None:
         assert self.graph is None
@@ -474,6 +551,7 @@ class CUDAGraphRunner:
             positions,
             kv_caches,
             input_metadata,
+            prefix_kv_caches
         )
         torch.cuda.synchronize()
 
@@ -485,6 +563,7 @@ class CUDAGraphRunner:
                 positions,
                 kv_caches,
                 input_metadata,
+                prefix_kv_caches
             )
         torch.cuda.synchronize()
 
@@ -493,6 +572,7 @@ class CUDAGraphRunner:
             "input_ids": input_ids,
             "positions": positions,
             "kv_caches": kv_caches,
+            "prefix_kv_caches": prefix_kv_caches,
             "slot_mapping": input_metadata.slot_mapping,
             "context_lens": input_metadata.context_lens,
             "block_tables": input_metadata.block_tables,
@@ -506,9 +586,12 @@ class CUDAGraphRunner:
         positions: torch.Tensor,
         kv_caches: List[Tuple[torch.Tensor, torch.Tensor]],
         input_metadata: InputMetadata,
+        prefix_kv_caches: List[Tuple[torch.Tensor, torch.Tensor]]
     ) -> torch.Tensor:
         # KV caches are fixed tensors, so we don't need to copy them.
+        # del just deletes a reference to the tensors 
         del kv_caches
+        del prefix_kv_caches
 
         # Copy the input tensors to the input buffers.
         self.input_buffers["input_ids"].copy_(input_ids, non_blocking=True)

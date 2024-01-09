@@ -85,7 +85,8 @@ class LLMEngine:
             f"tensor_parallel_size={parallel_config.tensor_parallel_size}, "
             f"quantization={model_config.quantization}, "
             f"enforce_eager={model_config.enforce_eager}, "
-            f"seed={model_config.seed})")
+            f"seed={model_config.seed}, "
+            f"enable_relay_attention={model_config.enable_relay_attention})")
         # TODO(woosuk): Print more configs in debug mode.
 
         self.model_config = model_config
@@ -114,6 +115,9 @@ class LLMEngine:
             self._init_workers(distributed_init_method)
 
         # Profile the memory usage and initialize the cache.
+        # This function call worker.profile_num_available_blocks() to analyze memory usage,
+        # worker.init_cache_engine() to allocate physical blocks,
+        # worker.warm_up_model() to build cuda graph
         self._init_cache()
 
         # Create the scheduler.
@@ -264,6 +268,11 @@ class LLMEngine:
                      placement_group,
                      log_stats=not engine_args.disable_log_stats)
         return engine
+    
+    def fill_prefix_kv_cache(self, shared_prefix:str):
+        shared_prefix_tokenized = self.tokenizer.encode(shared_prefix)
+        logger.info(f'Filling the shared prefix kv cache with {len(shared_prefix_tokenized)} tokens.')
+        self._run_workers('fill_prefix_kv_cache', prefix_token_ids=shared_prefix_tokenized)
 
     def add_request(
         self,

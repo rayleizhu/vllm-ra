@@ -81,6 +81,7 @@ class LLM:
         swap_space: int = 4,
         enforce_eager: bool = False,
         max_context_len_to_capture: int = 8192,
+        enable_relay_attention: bool = False,
         **kwargs,
     ) -> None:
         if "disable_log_stats" not in kwargs:
@@ -100,6 +101,7 @@ class LLM:
             swap_space=swap_space,
             enforce_eager=enforce_eager,
             max_context_len_to_capture=max_context_len_to_capture,
+            enable_relay_attention=enable_relay_attention,
             **kwargs,
         )
         self.llm_engine = LLMEngine.from_engine_args(engine_args)
@@ -163,6 +165,10 @@ class LLM:
                 i]
             self._add_request(prompt, sampling_params, token_ids)
         return self._run_engine(use_tqdm)
+
+    
+    def fill_prefix_kv_cache(self, shared_prefix:str):
+        self.llm_engine.fill_prefix_kv_cache(shared_prefix)
 
     def _add_request(
         self,

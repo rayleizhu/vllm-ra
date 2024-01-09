@@ -22,6 +22,7 @@ class InputMetadata:
         context_lens: Optional[torch.Tensor],
         block_tables: Optional[torch.Tensor],
         use_cuda_graph: bool,
+        prefix_length: int = 0
     ) -> None:
         self.prompt_lens = prompt_lens
         self.max_context_len = max_context_len
@@ -29,6 +30,7 @@ class InputMetadata:
         self.context_lens = context_lens
         self.block_tables = block_tables
         self.use_cuda_graph = use_cuda_graph
+        self.prefix_length = prefix_length
 
         self.is_prompt = len(prompt_lens) > 0
         # Set during the execution of the first attention op.

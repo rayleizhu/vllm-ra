@@ -147,12 +147,15 @@ class LlamaAttention(nn.Module):
         hidden_states: torch.Tensor,
         kv_cache: KVCache,
         input_metadata: InputMetadata,
+        prefix_kv_cache: KVCache
     ) -> torch.Tensor:
         qkv, _ = self.qkv_proj(hidden_states)
         q, k, v = qkv.split([self.q_size, self.kv_size, self.kv_size], dim=-1)
         q, k = self.rotary_emb(positions, q, k)
         k_cache, v_cache = kv_cache
-        attn_output = self.attn(q, k, v, k_cache, v_cache, input_metadata)
+        prefix_k_cache, prefix_v_cache = prefix_kv_cache
+        attn_output = self.attn(q, k, v, k_cache, v_cache, input_metadata,
+                                prefix_k_cache, prefix_v_cache)
         output, _ = self.o_proj(attn_output)
         return output
 
@@ -197,6 +200,7 @@ class LlamaDecoderLayer(nn.Module):
         kv_cache: KVCache,
         input_metadata: InputMetadata,
         residual: Optional[torch.Tensor],
+        prefix_kv_cache: KVCache
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         # Self Attention
         if residual is None:
@@ -210,6 +214,7 @@ class LlamaDecoderLayer(nn.Module):
             hidden_states=hidden_states,
             kv_cache=kv_cache,
             input_metadata=input_metadata,
+            prefix_kv_cache=prefix_kv_cache
         )
 
         # Fully Connected
@@ -246,6 +251,7 @@ class LlamaModel(nn.Module):
         positions: torch.Tensor,
         kv_caches: List[KVCache],
         input_metadata: InputMetadata,
+        prefix_kv_caches: List[KVCache]
     ) -> torch.Tensor:
         hidden_states = self.embed_tokens(input_ids)
         residual = None
@@ -257,6 +263,7 @@ class LlamaModel(nn.Module):
                 kv_caches[i],
                 input_metadata,
                 residual,
+                prefix_kv_caches[i]
             )
         hidden_states, _ = self.norm(hidden_states, residual)
         return hidden_states
@@ -282,9 +289,10 @@ class LlamaForCausalLM(nn.Module):
         positions: torch.Tensor,
         kv_caches: List[KVCache],
         input_metadata: InputMetadata,
+        prefix_kv_caches: List[KVCache],
     ) -> torch.Tensor:
         hidden_states = self.model(input_ids, positions, kv_caches,
-                                   input_metadata)
+                                   input_metadata, prefix_kv_caches)
         return hidden_states
 
     def sample(

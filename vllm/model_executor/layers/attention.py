@@ -1,5 +1,5 @@
 """Multi-head attention."""
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -11,6 +11,10 @@ from vllm._C import ops
 from vllm._C import cache_ops
 from vllm.model_executor.input_metadata import InputMetadata
 from vllm.utils import is_hip
+
+from vllm.functional.flashattn_ops import flash_attn_forward, flash_attn_with_kvcache
+from vllm.functional.relayattn_ops import relay_fusion
+from vllm.functional.xformers_ops import memory_efficient_attention_forward
 
 _SUPPORTED_HEAD_SIZES = [64, 80, 96, 112, 128, 256]
 # Should be the same as PARTITION_SIZE in `paged_attention_v2_launcher`.
@@ -64,6 +68,8 @@ class PagedAttention(nn.Module):
         key_cache: Optional[torch.Tensor],
         value_cache: Optional[torch.Tensor],
         input_metadata: InputMetadata,
+        prefix_key_cache: Optional[torch.Tensor] = None,
+        prefix_value_cache: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """PagedAttention forward pass.
 
@@ -80,8 +86,34 @@ class PagedAttention(nn.Module):
             shape = [batch_size, seq_len, num_heads * head_size]
         """
         batch_size, seq_len, hidden_size = query.shape
+
+        # fill the prefix kv cache here
+        # NOTE: this happens only when we fill prefix kv cache 
+        # by passing input_metadata.prefix_length=-1 as the signal
+        if input_metadata.prefix_length < 0:
+            assert (key_cache is None) and (value_cache is None) and \
+                    (prefix_key_cache is not None) and (prefix_value_cache is not None)
+            assert input_metadata.is_prompt and (batch_size == 1)
+            prefix_key_cache[:, :seq_len, :, :] = key.unflatten(-1, (self.num_kv_heads, self.head_size))
+            prefix_value_cache[:, :seq_len, :, :] = value.unflatten(-1, (self.num_kv_heads, self.head_size))
+        
+        if input_metadata.prefix_length > 0:
+            # TODO: check the correctness
+            # TODO (ray): use a static tensor to track prefix length to make it compatiable with CUDAGraph
+            # FIXME (ray): window attention
+            # NOTE: flash attention natively supports MQA/GQA
+            assert (prefix_key_cache is not None) and (prefix_value_cache is not None)
+            output_pre, lse_pre = flash_attn_with_kvcache(
+                query.view(1, batch_size*seq_len, self.num_heads, self.head_size),
+                k_cache=prefix_key_cache, # (1, prefix_length, num_kv_heads, head_size)
+                v_cache=prefix_value_cache, # (1, prefix_length, num_kv_heads, head_size)
+                cache_seqlens=input_metadata.prefix_length)
+            output_pre:torch.Tensor = output_pre.view(batch_size*seq_len, self.num_heads, self.head_size)
+            # (1, self.num_heads, batch_size*seq_len) -> (batch_size*seq_len, self.num_heads, 1)
+            lse_pre:torch.Tensor = lse_pre.transpose(1, 2).reshape(batch_size*seq_len, self.num_heads, 1).contiguous()
+
         # Reshape the query, key, and value tensors.
-        query = query.view(-1, self.num_heads, self.head_size)
+        query = query.view(-1, self.num_heads, self.head_size) # (bsz*seqlen, nheads, head_size)
         key = key.view(-1, self.num_kv_heads, self.head_size)
         value = value.view(-1, self.num_kv_heads, self.head_size)
 
@@ -107,6 +139,9 @@ class PagedAttention(nn.Module):
                 # TODO(woosuk): Use MQA/GQA kernels for higher performance.
                 query = query.view(query.shape[0], self.num_kv_heads,
                                    self.num_queries_per_kv, query.shape[-1])
+                # query: (bsz*seqlen, self.num_kv_heads, self.num_queries_per_kv, head_size)
+                # this is for MQA/GQA, see xops.memory_efficient_attention_forward
+                # TODO(ray): use native flash attention
                 key = key[:, :,
                           None, :].expand(key.shape[0], self.num_kv_heads,
                                           self.num_queries_per_kv,
@@ -135,29 +170,42 @@ class PagedAttention(nn.Module):
             # TODO(woosuk): Too many view operations. Let's try to reduce them
             # in the future for code readability.
             if self.alibi_slopes is None:
+                # [1, bsz*seqlen, head_groups, num_heads_per_group, K]
                 query = query.unsqueeze(0)
                 key = key.unsqueeze(0)
                 value = value.unsqueeze(0)
             else:
+                # [batch, seqlen, head_groups, num_heads_per_group, K]
                 query = query.unflatten(0, (batch_size, seq_len))
                 key = key.unflatten(0, (batch_size, seq_len))
                 value = value.unflatten(0, (batch_size, seq_len))
 
-            out = xops.memory_efficient_attention_forward(
-                query,
+            # out, lse = xops.memory_efficient_attention_forward(
+            #     query,
+            #     key,
+            #     value,
+            #     attn_bias=input_metadata.attn_bias,
+            #     p=0.0,
+            #     scale=self.scale,
+            #     op=xops.fmha.MemoryEfficientAttentionFlashAttentionOp[0] if
+            #     (is_hip()) else None,
+            # )
+            # output = out.view_as(query)
+            out, lse = memory_efficient_attention_forward(query,
                 key,
                 value,
                 attn_bias=input_metadata.attn_bias,
                 p=0.0,
-                scale=self.scale,
-                op=xops.fmha.MemoryEfficientAttentionFlashAttentionOp[0] if
-                (is_hip()) else None,
-            )
-            output = out.view_as(query)
+                scale=self.scale)
+            output = out.view(batch_size*seq_len, self.num_heads, self.head_size)
+            # (bsz, head, num_queries) -> (bsz*num_queries, nheads, 1)
+            lse = lse.transpose(1, 2).reshape(batch_size*seq_len, self.num_heads, 1)
         else:
             # Decoding run.
             if key_cache is not None and value_cache is not None:
-                output = _paged_attention(
+                # (bsz*seqlen, nheads, head_size)
+                # (bsz*seqlen, nheads, 1)
+                output, lse = _paged_attention(
                     query,
                     key_cache,
                     value_cache,
@@ -165,12 +213,23 @@ class PagedAttention(nn.Module):
                     self.num_kv_heads,
                     self.scale,
                     self.alibi_slopes,
+                    use_v1=False, # FIXME: fix this hack
                 )
             else:
                 # This happens during the initial memory profiling run for
                 # CUDA graphs.
                 output = torch.zeros_like(query)
+                lse = torch.zeros(batch_size*seq_len, self.num_heads, 1)
+        
+        if input_metadata.prefix_length > 0:
+            # print(output.stride())
+            # print(output_pre.stride())
+            # print(lse.size(), lse.stride())
+            # print(lse_pre.size(), lse_pre.stride())
+            # print('------')
+            output = relay_fusion(output, lse, output_pre, lse_pre)
 
+        # print(output.stride())
         # Reshape the output tensor.
         return output.view(batch_size, seq_len, hidden_size)
 
@@ -217,7 +276,8 @@ def _paged_attention(
     num_kv_heads: int,
     scale: float,
     alibi_slopes: Optional[torch.Tensor],
-) -> torch.Tensor:
+    use_v1: Optional[bool] = None
+) -> Tuple[torch.Tensor, torch.Tensor]:
     output = torch.empty_like(query)
 
     block_size = value_cache.shape[3]
@@ -232,8 +292,9 @@ def _paged_attention(
     # to parallelize.
     # TODO(woosuk): Tune this heuristic.
     # For context len > 8192, use V2 kernel to avoid shared memory shortage.
-    use_v1 = input_metadata.max_context_len <= 8192 and (
-        max_num_partitions == 1 or num_seqs * num_heads > 512)
+    if use_v1 is None:
+        use_v1 = input_metadata.max_context_len <= 8192 and (
+            max_num_partitions == 1 or num_seqs * num_heads > 512)
     if use_v1:
         # Run PagedAttention V1.
         ops.paged_attention_v1(
@@ -249,6 +310,7 @@ def _paged_attention(
             input_metadata.max_context_len,
             alibi_slopes,
         )
+        lse = None
     else:
         # Run PagedAttention V2.
         assert _PARTITION_SIZE % block_size == 0
@@ -279,4 +341,8 @@ def _paged_attention(
             input_metadata.max_context_len,
             alibi_slopes,
         )
-    return output
+        # TODO (ray): fuse this into the kernel
+        global_max_logit, _ = max_logits.max(dim=-1, keepdim=True) # (num_reqs, num_heads, 1)
+        se = (exp_sums.log() + max_logits - global_max_logit).exp().sum(-1, keepdim=True) # (num_seqs, num_heads, 1)
+        lse = se.log() + global_max_logit
+    return output, lse

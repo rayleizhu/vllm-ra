@@ -59,7 +59,8 @@ def sample_requests(
 
 
 def run_vllm(
-    requests: List[Tuple[str, int, int]],
+    requests: List[Tuple[str, int, int]], # (request_str, input_len, output_len)
+    shared_prefix: str,
     model: str,
     tokenizer: str,
     quantization: Optional[str],
@@ -83,7 +84,11 @@ def run_vllm(
         dtype=dtype,
         max_model_len=max_model_len,
         enforce_eager=enforce_eager,
+        enable_relay_attention=(shared_prefix is not None)
     )
+
+    if shared_prefix is not None:
+        llm.fill_prefix_kv_cache(shared_prefix)
 
     # Add the requests to the engine.
     for prompt, _, output_len in requests:
@@ -193,16 +198,19 @@ def main(args: argparse.Namespace):
     tokenizer = AutoTokenizer.from_pretrained(
         args.tokenizer, trust_remote_code=args.trust_remote_code)
     if args.dataset is None:
+        shared_prefix = "hello" * (args.prefix_len -1) if args.prefix_len > 0 else None
         # Synthesize a prompt with the given input length.
         prompt = "hi" * (args.input_len - 1)
         requests = [(prompt, args.input_len, args.output_len)
                     for _ in range(args.num_prompts)]
     else:
+        # TODO: add shared prefix
+        shared_prefix = None
         requests = sample_requests(args.dataset, args.num_prompts, tokenizer,
                                    args.output_len)
 
     if args.backend == "vllm":
-        elapsed_time = run_vllm(requests, args.model, args.tokenizer,
+        elapsed_time = run_vllm(requests, shared_prefix, args.model, args.tokenizer,
                                 args.quantization, args.tensor_parallel_size,
                                 args.seed, args.n, args.use_beam_search,
                                 args.trust_remote_code, args.dtype,
@@ -233,6 +241,10 @@ if __name__ == "__main__":
                         type=str,
                         default=None,
                         help="Path to the dataset.")
+    parser.add_argument("--prefix-len",
+                        type=int,
+                        default=0,
+                        help="length of shared prefix (e.g. system prompt)")
     parser.add_argument("--input-len",
                         type=int,
                         default=None,
