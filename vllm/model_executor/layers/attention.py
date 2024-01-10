@@ -228,7 +228,7 @@ class PagedAttention(nn.Module):
                     self.num_kv_heads,
                     self.scale,
                     self.alibi_slopes,
-                    use_v1=False, # FIXME(ray): fix this hack
+                    use_v1=True, # FIXME(ray): fix this hack
                 )
             else:
                 # This happens during the initial memory profiling run for
@@ -244,6 +244,7 @@ class PagedAttention(nn.Module):
             # print('------')
             output = relay_fusion(output_pre, lse_pre, output, lse,
                                   backend='triton', trans_lse_sys=trans_lse_pre)
+            # output = output
 
         # print(output.stride())
         # Reshape the output tensor.
@@ -302,6 +303,12 @@ def _paged_attention(
     max_num_partitions = (
         (input_metadata.max_context_len + _PARTITION_SIZE - 1) //
         _PARTITION_SIZE)
+
+    lse = torch.zeros(
+            size=(num_seqs, num_heads),
+            dtype=torch.float32,
+            device=output.device)
+    
     # NOTE(woosuk): We use a simple heuristic to decide whether to use
     # PagedAttention V1 or V2. If the number of partitions is 1, we use
     # V1 to avoid the overhead of reduction. Also, if the number of
@@ -315,6 +322,7 @@ def _paged_attention(
     if use_v1:
         # Run PagedAttention V1.
         ops.paged_attention_v1(
+            lse,
             output,
             query,
             key_cache,
@@ -327,7 +335,6 @@ def _paged_attention(
             input_metadata.max_context_len,
             alibi_slopes,
         )
-        lse = None
     else:
         # Run PagedAttention V2.
         assert _PARTITION_SIZE % block_size == 0
@@ -336,16 +343,22 @@ def _paged_attention(
             dtype=output.dtype,
             device=output.device,
         )
-        exp_sums = torch.empty(
+        # exp_sums = torch.empty(
+        #     size=(num_seqs, num_heads, max_num_partitions),
+        #     dtype=torch.float32,
+        #     device=output.device,
+        # )
+        # max_logits = torch.empty_like(exp_sums)
+        # FIXME (ray): make v2 work with CUDAGraph (use static buffer for tmp_lse)
+        tmp_lse = torch.empty(
             size=(num_seqs, num_heads, max_num_partitions),
             dtype=torch.float32,
             device=output.device,
         )
-        max_logits = torch.empty_like(exp_sums)
         ops.paged_attention_v2(
+            lse,
             output,
-            exp_sums,
-            max_logits,
+            tmp_lse,
             tmp_output,
             query,
             key_cache,
@@ -358,8 +371,10 @@ def _paged_attention(
             input_metadata.max_context_len,
             alibi_slopes,
         )
-        # TODO (ray): fuse this into the kernel
-        global_max_logit, _ = max_logits.max(dim=-1, keepdim=True) # (num_reqs, num_heads, 1)
-        se = (exp_sums.log() + max_logits - global_max_logit).exp().sum(-1) # (num_seqs, num_heads)
-        lse = se.log() + global_max_logit.squeeze(-1)
+        # TODO(ray): check the case that max_num_partitions > 1
+        # max_lse, _ = tmp_lse.max(dim=-1, keepdim=True) # (num_reqs, num_heads, 1)
+        # se = (tmp_lse - max_lse).exp().sum(-1) # (num_seqs, num_heads)
+        # lse_ = se.log() + max_lse.squeeze(-1)
+        # print(lse)
+        # print(lse_)
     return output, lse

@@ -33,10 +33,11 @@
 - [x] finish implemenation
 - [x] test in eager mode
 - make the implementation work with CUDAGraph
-    - [ ] use a static buffer to track the prefix cache length -> still buggy
+    - [x] use a static buffer to track the prefix cache length
+    - [ ] use a static buffer for tmp_lse to make paged_attention_v2 work with CUDAGraph
 - optimize the implementation further
-    - [ ] modify the paged attention kernel to return log-softmax-exp
     - [x] write a relay fusion kernel with triton
+    - [x] modify the paged attention kernel to return log-softmax-exp
     - [ ] use native flash attention kernel to support MQA/GQA
 - [ ] benchmark with synthetic data
 - [ ] benchmark with LongBench

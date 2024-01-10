@@ -3,6 +3,7 @@
 #include <torch/extension.h>
 
 void paged_attention_v1(
+  torch::Tensor& lse,             // [num_seqs, num_heads]
   torch::Tensor& out,
   torch::Tensor& query,
   torch::Tensor& key_cache,
@@ -16,9 +17,11 @@ void paged_attention_v1(
   const c10::optional<torch::Tensor>& alibi_slopes);
 
 void paged_attention_v2(
+  torch::Tensor& lse,           // [num_seqs, num_heads]
   torch::Tensor& out,
-  torch::Tensor& exp_sums,
-  torch::Tensor& max_logits,
+  // torch::Tensor& exp_sums,
+  // torch::Tensor& max_logits,
+  torch::Tensor& tmp_lse,      // [num_seqs, num_heads, max_num_partitions]
   torch::Tensor& tmp_out,
   torch::Tensor& query,
   torch::Tensor& key_cache,

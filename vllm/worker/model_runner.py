@@ -503,7 +503,8 @@ class ModelRunner:
             )
 
             graph_runner = CUDAGraphRunner(self.model)
-            debug_path = f'outputs/debug_cuda_graph/graph_bsz_{batch_size}.dot'
+            # debug_path = f'outputs/debug_cuda_graph/graph_bsz_{batch_size}.dot'
+            debug_path = None
             graph_runner.capture(
                 input_tokens[:batch_size],
                 input_positions[:batch_size],
