@@ -213,7 +213,7 @@ class PagedAttention(nn.Module):
                 p=0.0,
                 scale=self.scale)
             output = out.view(batch_size*seq_len, self.num_heads, self.head_size)
-            # (bsz, head, num_queries) -> (bsz*num_queries, nheads, 1)
+            # (bsz, head, num_queries) -> (bsz*num_queries, nheads)
             lse = lse.transpose(1, 2).reshape(batch_size*seq_len, self.num_heads).contiguous()
         else:
             # Decoding run.
@@ -228,7 +228,7 @@ class PagedAttention(nn.Module):
                     self.num_kv_heads,
                     self.scale,
                     self.alibi_slopes,
-                    use_v1=True, # FIXME(ray): fix this hack
+                    use_v1=None, # NOTE(ray): None means automatically selecting with heuristics
                 )
             else:
                 # This happens during the initial memory profiling run for
@@ -349,7 +349,6 @@ def _paged_attention(
         #     device=output.device,
         # )
         # max_logits = torch.empty_like(exp_sums)
-        # FIXME (ray): make v2 work with CUDAGraph (use static buffer for tmp_lse)
         tmp_lse = torch.empty(
             size=(num_seqs, num_heads, max_num_partitions),
             dtype=torch.float32,

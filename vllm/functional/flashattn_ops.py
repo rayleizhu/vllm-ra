@@ -8,7 +8,6 @@ from torch import Tensor
 from xformers import _C_flashattention as flash_attn_cuda
 
 
-# TODO (ray): add a valid_kv_length arg to allow "partial" attention
 def flash_attn_forward(q:Tensor, k:Tensor, v:Tensor,
                        dropout_p=0.0,
                        softmax_scale=None,
@@ -36,7 +35,6 @@ def flash_attn_forward(q:Tensor, k:Tensor, v:Tensor,
     return out, softmax_lse
 
 
-# FIXME: use a static cache_seqlens tensor to make it work with CUDAGraph
 def flash_attn_with_kvcache(
     q,
     k_cache,

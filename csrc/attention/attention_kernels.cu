@@ -490,7 +490,10 @@ __global__ void paged_attention_v2_reduce_kernel(
     // copy lse
     if(0 == threadIdx.x) {
       float* lse_ptr = lse + seq_idx * num_heads + head_idx;
-      *lse_ptr =  *(tmp_lse + seq_idx * num_heads + head_idx);
+      // NOTE: when using captured graph, tmp_lse always has the shape of (num_reqs, num_heads, max_num_partitions)
+      // &(tmp_lse[seq_idx][head_idx][0]) should be calculated as below (the stride of the final dim is max_num_partitions)
+      *lse_ptr =  *(tmp_lse + seq_idx * num_heads * max_num_partitions
+                            + head_idx * max_num_partitions);
     }
     // Terminate the thread block.
     return;
