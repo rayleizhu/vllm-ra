@@ -103,14 +103,29 @@ class PagedAttention(nn.Module):
             # FIXME (ray): window attention
             # NOTE: flash attention natively supports MQA/GQA
             assert (prefix_key_cache is not None) and (prefix_value_cache is not None)
+            # output_pre, lse_pre = flash_attn_forward(
+            #     query.view(1, -1, self.num_heads, self.head_size), # (1, bsz*len, num_heads, head_size)
+            #     k=prefix_key_cache, # (1, prefix_length, num_kv_heads, head_size)
+            #     v=prefix_value_cache, # (1, prefix_length, num_kv_heads, head_size)
+            # )
+            # print(input_metadata.prefix_length, input_metadata.prefix_length_buffer)
             output_pre, lse_pre = flash_attn_with_kvcache(
-                query.view(1, batch_size*seq_len, self.num_heads, self.head_size),
+                query.view(1, -1, self.num_heads, self.head_size), # (1, bsz*len, num_heads, head_size)
                 k_cache=prefix_key_cache, # (1, prefix_length, num_kv_heads, head_size)
                 v_cache=prefix_value_cache, # (1, prefix_length, num_kv_heads, head_size)
-                cache_seqlens=input_metadata.prefix_length)
-            output_pre:torch.Tensor = output_pre.view(batch_size*seq_len, self.num_heads, self.head_size)
+                cache_seqlens=input_metadata.prefix_length_buffer, # (1, )
+                softmax_scale=self.scale)
+            output_pre:torch.Tensor = output_pre.view(-1, self.num_heads, self.head_size)
+            # TODO: check if the following caused the silent error with CUDAGraph
+            # .view() method does not change the data_ptr(), and keeps launch parameters (stride, size, etc) consistent
+            # during capture and replay. However, transpose changes the strides
             # (1, self.num_heads, batch_size*seq_len) -> (batch_size*seq_len, self.num_heads, 1)
-            lse_pre:torch.Tensor = lse_pre.transpose(1, 2).reshape(batch_size*seq_len, self.num_heads, 1).contiguous()
+            # lse_pre:torch.Tensor = lse_pre.transpose(1, 2).reshape(-1, self.num_heads, 1)
+            # lse_pre:torch.Tensor = lse_pre.transpose(1, 2).reshape(-1, self.num_heads, 1).contiguous()
+            # lse_pre:torch.Tensor = lse_pre.transpose(0, 2).contiguous()
+            # lse_pre:torch.Tensor = lse_pre.squeeze(0).transpose(0, 1).view(-1, self.num_heads, 1).contiguous()
+            lse_pre:torch.Tensor = lse_pre.squeeze(0)
+            trans_lse_pre = True
 
         # Reshape the query, key, and value tensors.
         query = query.view(-1, self.num_heads, self.head_size) # (bsz*seqlen, nheads, head_size)
@@ -199,12 +214,12 @@ class PagedAttention(nn.Module):
                 scale=self.scale)
             output = out.view(batch_size*seq_len, self.num_heads, self.head_size)
             # (bsz, head, num_queries) -> (bsz*num_queries, nheads, 1)
-            lse = lse.transpose(1, 2).reshape(batch_size*seq_len, self.num_heads, 1)
+            lse = lse.transpose(1, 2).reshape(batch_size*seq_len, self.num_heads).contiguous()
         else:
             # Decoding run.
             if key_cache is not None and value_cache is not None:
                 # (bsz*seqlen, nheads, head_size)
-                # (bsz*seqlen, nheads, 1)
+                # (bsz*seqlen, nheads)
                 output, lse = _paged_attention(
                     query,
                     key_cache,
@@ -213,13 +228,13 @@ class PagedAttention(nn.Module):
                     self.num_kv_heads,
                     self.scale,
                     self.alibi_slopes,
-                    use_v1=False, # FIXME: fix this hack
+                    use_v1=False, # FIXME(ray): fix this hack
                 )
             else:
                 # This happens during the initial memory profiling run for
                 # CUDA graphs.
                 output = torch.zeros_like(query)
-                lse = torch.zeros(batch_size*seq_len, self.num_heads, 1)
+                lse = torch.zeros(batch_size*seq_len, self.num_heads)
         
         if input_metadata.prefix_length > 0:
             # print(output.stride())
@@ -227,10 +242,12 @@ class PagedAttention(nn.Module):
             # print(lse.size(), lse.stride())
             # print(lse_pre.size(), lse_pre.stride())
             # print('------')
-            output = relay_fusion(output, lse, output_pre, lse_pre)
+            output = relay_fusion(output_pre, lse_pre, output, lse,
+                                  backend='triton', trans_lse_sys=trans_lse_pre)
 
         # print(output.stride())
         # Reshape the output tensor.
+        # return output.reshape(batch_size, seq_len, hidden_size)
         return output.view(batch_size, seq_len, hidden_size)
 
 
@@ -343,6 +360,6 @@ def _paged_attention(
         )
         # TODO (ray): fuse this into the kernel
         global_max_logit, _ = max_logits.max(dim=-1, keepdim=True) # (num_reqs, num_heads, 1)
-        se = (exp_sums.log() + max_logits - global_max_logit).exp().sum(-1, keepdim=True) # (num_seqs, num_heads, 1)
-        lse = se.log() + global_max_logit
+        se = (exp_sums.log() + max_logits - global_max_logit).exp().sum(-1) # (num_seqs, num_heads)
+        lse = se.log() + global_max_logit.squeeze(-1)
     return output, lse

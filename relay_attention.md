@@ -31,11 +31,16 @@
 ## TODOs
 
 - [x] finish implemenation
-- [ ] test in eager mode
-- [ ] make the implementation work with CUDAGraph
-- [ ] modify the paged attention kernel to return log-softmax-exp
+- [x] test in eager mode
+- make the implementation work with CUDAGraph
+    - [ ] use a static buffer to track the prefix cache length -> still buggy
+- optimize the implementation further
+    - [ ] modify the paged attention kernel to return log-softmax-exp
+    - [x] write a relay fusion kernel with triton
+    - [ ] use native flash attention kernel to support MQA/GQA
 - [ ] benchmark with synthetic data
 - [ ] benchmark with LongBench
+- [ ] check if we need to change the behavior of tokenizer (e.g. avoid prepending bos token)
 
 ## Trouble shooting
 
@@ -44,6 +49,10 @@
     - [Cannot find the config file for awq when load llm with LLaMA-2 + AWQ](https://github.com/vllm-project/vllm/issues/1419)
 * model downloading
     - [hf-mirror](https://hf-mirror.com/)
+* relay attention does not work with CUDAGraph
+    - [https://github.com/pytorch/pytorch/issues/114048](https://github.com/pytorch/pytorch/issues/114048)
+    - [CUDA semantics - CUDA Graphs](https://pytorch.org/docs/master/notes/cuda.html#constraints)
+    - [Transposed read/writes](https://github.com/openai/triton/issues/176)
 
 ## Referrences
 

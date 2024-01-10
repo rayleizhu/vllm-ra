@@ -22,7 +22,9 @@ class InputMetadata:
         context_lens: Optional[torch.Tensor],
         block_tables: Optional[torch.Tensor],
         use_cuda_graph: bool,
-        prefix_length: int = 0
+        prefix_length: int = 0,
+        # NOTE (ray): we need a static buffer to work with CUDAGraph
+        prefix_length_buffer: Optional[torch.Tensor]=None, 
     ) -> None:
         self.prompt_lens = prompt_lens
         self.max_context_len = max_context_len
@@ -31,6 +33,7 @@ class InputMetadata:
         self.block_tables = block_tables
         self.use_cuda_graph = use_cuda_graph
         self.prefix_length = prefix_length
+        self.prefix_length_buffer = prefix_length_buffer
 
         self.is_prompt = len(prompt_lens) > 0
         # Set during the execution of the first attention op.
@@ -44,4 +47,5 @@ class InputMetadata:
                 f"slot_mapping={self.slot_mapping}, "
                 f"context_lens={self.context_lens}, "
                 f"block_tables={self.block_tables}, "
-                f"use_cuda_graph={self.use_cuda_graph})")
+                f"use_cuda_graph={self.use_cuda_graph}, "
+                f"prefix_length={self.prefix_length})")

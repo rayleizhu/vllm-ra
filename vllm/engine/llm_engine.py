@@ -271,6 +271,7 @@ class LLMEngine:
     
     def fill_prefix_kv_cache(self, shared_prefix:str):
         shared_prefix_tokenized = self.tokenizer.encode(shared_prefix)
+        # TODO (ray): we may need to set the tokenizer to not prepend <bos> token for later requests 
         logger.info(f'Filling the shared prefix kv cache with {len(shared_prefix_tokenized)} tokens.')
         self._run_workers('fill_prefix_kv_cache', prefix_token_ids=shared_prefix_tokenized)
 

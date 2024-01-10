@@ -1,5 +1,5 @@
 import time
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -137,6 +137,9 @@ class ModelRunner:
                                              max_prompt_len,
                                              pad=_PAD_SLOT_ID,
                                              dtype=torch.long)
+        prefix_length_buffer = torch.tensor([self.prefix_len],
+                                            dtype=torch.int32,
+                                            device='cuda')
 
         input_metadata = InputMetadata(
             prompt_lens=prompt_lens,
@@ -145,7 +148,8 @@ class ModelRunner:
             context_lens=None,
             block_tables=None,
             use_cuda_graph=False,
-            prefix_length=self.prefix_len
+            prefix_length=self.prefix_len,
+            prefix_length_buffer=prefix_length_buffer
         )
         return input_tokens, input_positions, input_metadata
 
@@ -234,6 +238,10 @@ class ModelRunner:
                                     dtype=torch.int,
                                     device=device,
                                     pin_memory=pin_memory)
+        prefix_length_buffer = torch.tensor([self.prefix_len],
+                                            dtype=torch.int32,
+                                            device=device,
+                                            pin_memory=pin_memory)
 
         if use_captured_graph:
             # The shape of graph_block_tables is
@@ -258,7 +266,8 @@ class ModelRunner:
             context_lens=context_lens,
             block_tables=block_tables,
             use_cuda_graph=use_captured_graph,
-            prefix_length=self.prefix_len
+            prefix_length=self.prefix_len,
+            prefix_length_buffer=prefix_length_buffer
         )
         return input_tokens, input_positions, input_metadata
 
@@ -407,28 +416,6 @@ class ModelRunner:
         torch.cuda.synchronize()
         return
     
-    # @torch.inference_mode()
-    # def fill_prefix_kv_cache(self, prefix_token_ids:List[int],
-    #         prefix_kv_caches:List[Tuple(torch.Tensor, torch.Tensor)]):
-    #     # TODO(ray): call model.forward directly? remove sampling?
-    #     vocab_size = self.model_config.get_vocab_size()
-    #     sampling_params = SamplingParams(top_p=0.99, top_k=vocab_size - 1)
-
-    #     # construct input data
-    #     seq_data = SequenceData(prefix_token_ids)
-    #     seq = SequenceGroupMetadata(
-    #         request_id=str(0),
-    #         is_prompt=True,
-    #         seq_data={0:seq_data},
-    #         sampling_params=sampling_params,
-    #         block_tables=None,
-    #     )
-    #     # Run the model with the dummy caches.
-    #     num_layers = self.model_config.get_num_layers(self.parallel_config)
-    #     kv_caches = [(None, None)] * num_layers
-    #     self.execute_model([seq], kv_caches, prefix_kv_caches=prefix_kv_caches)
-    #     self.prefix_len = len(prefix_token_ids)
-
     @torch.inference_mode()
     def fill_prefix_kv_cache(self, prefix_token_ids:List[int],
             prefix_kv_caches:List[Tuple[torch.Tensor, torch.Tensor]])->None:
@@ -451,7 +438,8 @@ class ModelRunner:
             context_lens=None, # PagedAttention is not ativcated
             block_tables=None, # PagedAttention is not ativcated
             use_cuda_graph=False, # cuda graph is used for generation phase only
-            prefix_length=-1 # use -1 to notify this is prefix kv cache filling 
+            prefix_length=-1, # use -1 to notify this is prefix kv cache filling 
+            prefix_length_buffer=None, # no need to run relay at the filling stage
         )
         # this forward is for prefix kv cache filling only
         # no need to do sampling
@@ -486,6 +474,7 @@ class ModelRunner:
         slot_mapping.fill_(_PAD_SLOT_ID)
         context_lens = torch.ones(max_batch_size, dtype=torch.int32).cuda()
         block_tables = torch.from_numpy(self.graph_block_tables).cuda()
+        prefix_length_buffer = torch.empty(1, dtype=torch.int32).cuda()
 
         # NOTE: Capturing the largest batch size first may help reduce the
         # memory usage of CUDA graph.
@@ -495,6 +484,11 @@ class ModelRunner:
         # or any value > 0 is fine?
         prefix_length_for_capture = self.max_context_len_to_capture \
             if self.model_config.enable_relay_attention else 0 # 0 will disable relay attention
+        # print(self.max_context_len_to_capture )
+        prefix_length_buffer.fill_(prefix_length_for_capture)
+        # prefix_length_buffer = torch.full(
+        #     (1,), prefix_length_for_capture, dtype=torch.int32
+        # ).cuda()
         for batch_size in reversed(_BATCH_SIZES_TO_CAPTURE):
             # Create dummy input_metadata.
             input_metadata = InputMetadata(
@@ -505,9 +499,11 @@ class ModelRunner:
                 block_tables=block_tables[:batch_size],
                 use_cuda_graph=True,
                 prefix_length=prefix_length_for_capture,
+                prefix_length_buffer=prefix_length_buffer,
             )
 
             graph_runner = CUDAGraphRunner(self.model)
+            debug_path = f'outputs/debug_cuda_graph/graph_bsz_{batch_size}.dot'
             graph_runner.capture(
                 input_tokens[:batch_size],
                 input_positions[:batch_size],
@@ -515,6 +511,7 @@ class ModelRunner:
                 input_metadata,
                 prefix_kv_caches,
                 memory_pool=self.graph_memory_pool,
+                debug_path=debug_path
             )
             self.graph_memory_pool = graph_runner.graph.pool()
             self.graph_runners[batch_size] = graph_runner
@@ -541,6 +538,7 @@ class CUDAGraphRunner:
         input_metadata: InputMetadata,
         prefix_kv_caches: List[KVCache],
         memory_pool,
+        debug_path:Optional[str]=None,
     ) -> None:
         assert self.graph is None
         # Run the model once without capturing the graph.
@@ -557,6 +555,8 @@ class CUDAGraphRunner:
 
         # Capture the graph.
         self.graph = torch.cuda.CUDAGraph()
+        if debug_path is not None:
+            self.graph.enable_debug_mode()
         with torch.cuda.graph(self.graph, pool=memory_pool):
             hidden_states = self.model(
                 input_ids,
@@ -566,6 +566,8 @@ class CUDAGraphRunner:
                 prefix_kv_caches
             )
         torch.cuda.synchronize()
+        if debug_path is not None:
+            self.graph.debug_dump(debug_path)
 
         # Save the input and output buffers.
         self.input_buffers = {
@@ -576,6 +578,7 @@ class CUDAGraphRunner:
             "slot_mapping": input_metadata.slot_mapping,
             "context_lens": input_metadata.context_lens,
             "block_tables": input_metadata.block_tables,
+            "prefix_length_buffer": input_metadata.prefix_length_buffer
         }
         self.output_buffers = {"hidden_states": hidden_states}
         return
@@ -602,6 +605,10 @@ class CUDAGraphRunner:
                                                  non_blocking=True)
         self.input_buffers["block_tables"].copy_(input_metadata.block_tables,
                                                  non_blocking=True)
+        # TODO(ray): copy_() ? 
+        self.input_buffers["prefix_length_buffer"].copy_(input_metadata.prefix_length_buffer,
+                                                         non_blocking=True)
+        # self.input_buffers["prefix_length_buffer"].fill_(input_metadata.prefix_length)
 
         # Run the graph.
         self.graph.replay()
