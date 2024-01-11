@@ -40,8 +40,23 @@
     - [x] modify the paged attention kernel to return log-softmax-exp
     - [ ] use native flash attention kernel to support MQA/GQA
 - [ ] benchmark with synthetic data
+- [ ] benchmark standalone relay attention (teaser)
 - [ ] benchmark with LongBench
 - [ ] check if we need to change the behavior of tokenizer (e.g. avoid prepending bos token)
+
+## Usage
+
+1. benchmark throughputs
+
+```bash
+python benchmarks/benchmark_throughput.py --backend vllm+ --prefix-len 1024 --input-len 128 --output-len 256
+```
+
+2. sample dialogue examples 
+
+```bash
+python examples/relay_inference.py
+```
 
 ## Trouble shooting
 
@@ -51,10 +66,9 @@
 * model downloading
     - [hf-mirror](https://hf-mirror.com/)
 * relay attention does not work with CUDAGraph
+    - [Accelerating PyTorch with CUDA Graphs](https://pytorch.org/blog/accelerating-pytorch-with-cuda-graphs/)
     - [https://github.com/pytorch/pytorch/issues/114048](https://github.com/pytorch/pytorch/issues/114048)
     - [CUDA semantics - CUDA Graphs](https://pytorch.org/docs/master/notes/cuda.html#constraints)
     - [Transposed read/writes](https://github.com/openai/triton/issues/176)
-
-## Referrences
-
-* [Accelerating PyTorch with CUDA Graphs](https://pytorch.org/blog/accelerating-pytorch-with-cuda-graphs/)
+    - [Visualize DOT graph online for debugging CUDAGraph](https://edotor.net/)
+    

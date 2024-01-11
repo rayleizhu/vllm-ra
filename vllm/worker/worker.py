@@ -130,6 +130,8 @@ class Worker:
     
     @torch.inference_mode()
     def fill_prefix_kv_cache(self, prefix_token_ids:List[int]):
+        assert self.model_config.enable_relay_attention
+        assert len(prefix_token_ids) <= self.prefix_gpu_cache[0][0].size(1)
         self.model_runner.fill_prefix_kv_cache(prefix_token_ids, self.prefix_gpu_cache)
         torch.cuda.synchronize()
 

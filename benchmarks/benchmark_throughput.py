@@ -72,6 +72,8 @@ def run_vllm(
     dtype: str,
     max_model_len: Optional[int],
     enforce_eager: bool,
+    enable_relay_attention:bool = False,
+    load_format:str = 'auto'
 ) -> float:
     from vllm import LLM, SamplingParams
     llm = LLM(
@@ -84,11 +86,16 @@ def run_vllm(
         dtype=dtype,
         max_model_len=max_model_len,
         enforce_eager=enforce_eager,
-        enable_relay_attention=(shared_prefix is not None)
+        enable_relay_attention=enable_relay_attention,
+        load_format=load_format
     )
 
     if shared_prefix is not None:
-        llm.fill_prefix_kv_cache(shared_prefix)
+        if enable_relay_attention:
+            llm.fill_prefix_kv_cache(shared_prefix)
+        else:
+            requests = [(shared_prefix+p, i_len+len(shared_prefix), o_len)
+                         for (p, i_len, o_len) in requests]
 
     # Add the requests to the engine.
     for prompt, _, output_len in requests:
@@ -214,7 +221,17 @@ def main(args: argparse.Namespace):
                                 args.quantization, args.tensor_parallel_size,
                                 args.seed, args.n, args.use_beam_search,
                                 args.trust_remote_code, args.dtype,
-                                args.max_model_len, args.enforce_eager)
+                                args.max_model_len, args.enforce_eager,
+                                enable_relay_attention=False,
+                                load_format=args.load_format)
+    elif args.backend == "vllm+":
+        elapsed_time = run_vllm(requests, shared_prefix, args.model, args.tokenizer,
+                                args.quantization, args.tensor_parallel_size,
+                                args.seed, args.n, args.use_beam_search,
+                                args.trust_remote_code, args.dtype,
+                                args.max_model_len, args.enforce_eager,
+                                enable_relay_attention=True,
+                                load_format=args.load_format)
     elif args.backend == "hf":
         assert args.tensor_parallel_size == 1
         elapsed_time = run_hf(requests, args.model, tokenizer, args.n,
@@ -225,18 +242,34 @@ def main(args: argparse.Namespace):
                                args.output_len)
     else:
         raise ValueError(f"Unknown backend: {args.backend}")
-    total_num_tokens = sum(prompt_len + output_len
+    total_num_tokens = sum(args.prefix_len + prompt_len + output_len
                            for _, prompt_len, output_len in requests)
+    gen_num_tokens = sum(output_len for _, _, output_len in requests)
     print(f"Throughput: {len(requests) / elapsed_time:.2f} requests/s, "
-          f"{total_num_tokens / elapsed_time:.2f} tokens/s")
+          f"{total_num_tokens / elapsed_time:.2f} tokens/s (context+generation), "
+          f"{gen_num_tokens / elapsed_time:.2f} token/s (generation)")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Benchmark the throughput.")
     parser.add_argument("--backend",
                         type=str,
-                        choices=["vllm", "hf", "mii"],
+                        choices=["vllm", "hf", "mii", "vllm+"],
                         default="vllm")
+    parser.add_argument("--load-format",
+                        type=str,
+                        default='auto',
+                        choices=['auto', 'pt', 'safetensors', 'npcache', 'dummy'],
+                        help='The format of the model weights to load. '
+                        '"auto" will try to load the weights in the safetensors format '
+                        'and fall back to the pytorch bin format if safetensors format '
+                        'is not available. '
+                        '"pt" will load the weights in the pytorch bin format. '
+                        '"safetensors" will load the weights in the safetensors format. '
+                        '"npcache" will load the weights in pytorch format and store '
+                        'a numpy cache to speed up the loading. '
+                        '"dummy" will initialize the weights with random values, '
+                        'which is mainly for profiling.')
     parser.add_argument("--dataset",
                         type=str,
                         default=None,
