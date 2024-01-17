@@ -314,6 +314,9 @@ class LLMEngine:
         if prompt_token_ids is None:
             assert prompt is not None
             prompt_token_ids = self.tokenizer.encode(prompt)
+            # FIXME (ray): there may be bugs in the tokenizer with relay attention
+            # if self.model_config.enable_relay_attention:
+            #     prompt_token_ids=prompt_token_ids[1:]
 
         # Create the sequences.
         block_size = self.cache_config.block_size

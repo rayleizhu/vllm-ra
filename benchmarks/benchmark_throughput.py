@@ -4,6 +4,7 @@ import json
 import random
 import time
 from typing import List, Optional, Tuple
+import os.path as osp
 
 import torch
 from transformers import (AutoModelForCausalLM, AutoTokenizer,
@@ -245,9 +246,21 @@ def main(args: argparse.Namespace):
     total_num_tokens = sum(args.prefix_len + prompt_len + output_len
                            for _, prompt_len, output_len in requests)
     gen_num_tokens = sum(output_len for _, _, output_len in requests)
-    print(f"Throughput: {len(requests) / elapsed_time:.2f} requests/s, "
-          f"{total_num_tokens / elapsed_time:.2f} tokens/s (context+generation), "
-          f"{gen_num_tokens / elapsed_time:.2f} token/s (generation)")
+
+    req_per_sec = len(requests) / elapsed_time
+    process_tok_per_sec =  total_num_tokens / elapsed_time
+    generate_tok_per_sec = gen_num_tokens / elapsed_time
+
+    print(f"Throughput: {req_per_sec:.2f} requests/s, "
+          f"{process_tok_per_sec:.2f} tokens/s (context+generation), "
+          f"{generate_tok_per_sec:.2f} token/s (generation)")
+    
+    result_file = osp.join(args.output_dir, "benchmark.json")
+    with open(result_file, mode='w') as cf:
+        json.dump({"req_per_sec": req_per_sec,
+                   "process_tok_per_sec": process_tok_per_sec,
+                   "generate_tok_per_sec": generate_tok_per_sec},
+                   cf, indent=4)
 
 
 if __name__ == "__main__":
@@ -329,6 +342,7 @@ if __name__ == "__main__":
     parser.add_argument("--enforce-eager",
                         action="store_true",
                         help="enforce eager execution")
+    parser.add_argument("--output-dir", type=str, default="outputs/llm_throughput_syn")
     args = parser.parse_args()
     if args.tokenizer is None:
         args.tokenizer = args.model

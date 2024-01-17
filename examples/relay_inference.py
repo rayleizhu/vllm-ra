@@ -14,7 +14,11 @@ sampling_params = SamplingParams(temperature=0.8, top_p=0.95, max_tokens=128)
 mode = 'relay'
 model = 'TheBloke/Llama-2-7b-Chat-AWQ'
 quant = 'awq'
-enforce_eager = False
+
+# mode='relay'
+# model = 'meta-llama/Llama-2-7b-hf'
+# quant = None
+enforce_eager = True
 
 B_INST, E_INST = "[INST]", "[/INST]"
 B_SYS, E_SYS = "<<SYS>>", "<</SYS>>"
