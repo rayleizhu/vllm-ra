@@ -44,6 +44,9 @@
     - [x] cudagraph mode
     - [ ] run benchmark and profiling on A100 and plot figures
 - [ ] benchmark with synthetic data
+    - [ ] throughput
+    - [ ] latency
+        - fixed [a bug of vllm](https://github.com/vllm-project/vllm/pull/2398/files/66f1e084c31e09e5225783b3e18659ca5deebaf6) for OPT and LLAMA models
 - [ ] benchmark with LongBench
 - [ ] check if we need to change the behavior of tokenizer (e.g. avoid prepending bos token)
 

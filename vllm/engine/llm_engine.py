@@ -89,6 +89,16 @@ class LLMEngine:
             f"enable_relay_attention={model_config.enable_relay_attention})")
         # TODO(woosuk): Print more configs in debug mode.
 
+        self.tokenizer = get_tokenizer(
+            model_config.tokenizer,
+            tokenizer_mode=model_config.tokenizer_mode,
+            trust_remote_code=model_config.trust_remote_code,
+            tokenizer_revision=model_config.tokenizer_revision,
+            revision=model_config.revision)
+        # https://github.com/vllm-project/vllm/pull/2398
+        model_config.hf_config.sampler_vocab_size = min(
+            len(self.tokenizer), model_config.hf_config.vocab_size)
+        
         self.model_config = model_config
         self.cache_config = cache_config
         self.parallel_config = parallel_config
@@ -96,12 +106,6 @@ class LLMEngine:
         self.log_stats = log_stats
         self._verify_args()
 
-        self.tokenizer = get_tokenizer(
-            model_config.tokenizer,
-            tokenizer_mode=model_config.tokenizer_mode,
-            trust_remote_code=model_config.trust_remote_code,
-            tokenizer_revision=model_config.tokenizer_revision,
-            revision=model_config.revision)
         self.seq_counter = Counter()
 
         # Create the parallel GPU workers.
@@ -269,8 +273,14 @@ class LLMEngine:
                      log_stats=not engine_args.disable_log_stats)
         return engine
     
-    def fill_prefix_kv_cache(self, shared_prefix:str):
-        shared_prefix_tokenized = self.tokenizer.encode(shared_prefix)
+    def fill_prefix_kv_cache(self, shared_prefix:str,
+                             shared_prefix_toks:Optional[List[int]]=None):
+        if shared_prefix_toks is None:
+            assert isinstance(shared_prefix, str)
+            shared_prefix_tokenized = self.tokenizer.encode(shared_prefix)
+        else:
+            assert shared_prefix is None
+            shared_prefix_tokenized = shared_prefix_toks
         # TODO (ray): we may need to set the tokenizer to not prepend <bos> token for later requests 
         logger.info(f'Filling the shared prefix kv cache with {len(shared_prefix_tokenized)} tokens.')
         self._run_workers('fill_prefix_kv_cache', prefix_token_ids=shared_prefix_tokenized)

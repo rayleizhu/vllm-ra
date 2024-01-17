@@ -145,7 +145,7 @@ def main(args):
         torch.cuda.synchronize()
         prof.export_chrome_trace(save_path)
     
-    def run_benchmark(num_iters:int, profile:bool=False)->float:
+    def run_benchmark(num_iters:int)->float:
         torch.cuda.synchronize()
         start_time = time.perf_counter()
         for _ in range(num_iters):
@@ -163,7 +163,7 @@ def main(args):
     
     # Benchmark.
     print("Run benchmarking...")
-    latency = run_benchmark(num_iters=100, profile=False)
+    latency = run_benchmark(num_iters=100)
     
     print(f"Kernel running time: {latency * 1000000:.3f} us")
     print(f"Memory used: {torch.cuda.max_memory_reserved() / 1e9:.02f} GB")

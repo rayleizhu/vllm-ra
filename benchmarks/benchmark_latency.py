@@ -24,6 +24,7 @@ def main(args: argparse.Namespace):
         trust_remote_code=args.trust_remote_code,
         dtype=args.dtype,
         enforce_eager=args.enforce_eager,
+        enable_relay_attention=args.enable_relay
     )
 
     sampling_params = SamplingParams(
@@ -36,6 +37,16 @@ def main(args: argparse.Namespace):
     )
     print(sampling_params)
     dummy_prompt_token_ids = [[0] * args.input_len] * args.batch_size
+
+    if args.prefix_len > 0:
+        if args.enable_relay:
+            llm.fill_prefix_kv_cache(
+                shared_prefix=None,
+                shared_prefix_toks=[0]*args.prefix_len)
+        else:
+            prefix_toks = [0 for _ in range(args.prefix_len)] 
+            dummy_prompt_token_ids = [prefix_toks + x 
+                for x in dummy_prompt_token_ids]
 
     def run_to_completion(profile_dir: Optional[str] = None):
         if profile_dir:
@@ -88,6 +99,8 @@ if __name__ == '__main__':
                         choices=['awq', 'gptq', 'squeezellm', None],
                         default=None)
     parser.add_argument('--tensor-parallel-size', '-tp', type=int, default=1)
+    parser.add_argument('--prefix-len', type=int, default=0)
+    parser.add_argument('--enable-relay', action="store_true")
     parser.add_argument('--input-len', type=int, default=32)
     parser.add_argument('--output-len', type=int, default=128)
     parser.add_argument('--batch-size', type=int, default=8)

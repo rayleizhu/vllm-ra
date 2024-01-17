@@ -167,8 +167,10 @@ class LLM:
         return self._run_engine(use_tqdm)
 
     
-    def fill_prefix_kv_cache(self, shared_prefix:str):
-        self.llm_engine.fill_prefix_kv_cache(shared_prefix)
+    def fill_prefix_kv_cache(self, shared_prefix:str,
+                             shared_prefix_toks:List[int]=None):
+        self.llm_engine.fill_prefix_kv_cache(shared_prefix=shared_prefix,
+            shared_prefix_toks=shared_prefix_toks)
 
     def _add_request(
         self,
