@@ -4,12 +4,27 @@ import argparse
 import random
 import time
 import os.path as osp
+import json
 
 from vllm.model_executor.layers.attention import PagedAttention
 from vllm.model_executor.input_metadata import InputMetadata
 
 NUM_BLOCKS = 1024
 PARTITION_SIZE = 512
+
+def str2bool(v:str):
+    """
+    Converts string to bool type; enables command line 
+    arguments in the format of '--arg1 true --arg2 false'
+    """
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
 
 
 @torch.inference_mode()
@@ -158,16 +173,24 @@ def main(args):
     # Profile.
     if args.profile:
         print("Run profiling...")
-        save_path = osp.join(args.profile_dir, f"relay.{args.enable_relay}_cudagraph.{args.use_cuda_graph}.json")
+        save_path = osp.join(args.output_dir, "profile.json")
         run_profile(save_path)
     
     # Benchmark.
     print("Run benchmarking...")
     latency = run_benchmark(num_iters=100)
-    
-    print(f"Kernel running time: {latency * 1000000:.3f} us")
-    print(f"Memory used: {torch.cuda.max_memory_reserved() / 1e9:.02f} GB")
 
+    memory_in_gb = torch.cuda.max_memory_reserved() / 1e9
+    latency_in_us = latency * 1e6 
+    
+    print(f"Kernel running time: {latency_in_us:.3f} us")
+    print(f"Memory used: {memory_in_gb:.02f} GB")
+
+    result_file = osp.join(args.output_dir, "benchmark.json")
+    with open(result_file, mode='w') as cf:
+        json.dump({"Memory (GB)": memory_in_gb,
+                   "Lantency (us)": latency_in_us},
+                   cf, indent=4)
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -188,22 +211,22 @@ if __name__ == '__main__':
     # parser.add_argument("--use-alibi", action="store_true")
     parser.add_argument("--block-size", type=int, choices=[16, 32], default=16)
     
-    parser.add_argument("--enable-relay", action="store_true")
-
     # TODO (ray): support prefill
     parser.add_argument("--phase", type=str,
                         choices=["generation", 'prefill'],
                         default="generation")
-    parser.add_argument("--include-cache-ops", action="store_true")
-    parser.add_argument("--use-cuda-graph", action="store_true")
     parser.add_argument("--dtype",
                         type=str,
                         choices=["half", "bfloat16", "float"],
                         default="half")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--output-dir", type=str, default="outputs/relay_op/")
 
-    parser.add_argument("--profile", action="store_true")
-    parser.add_argument("--profile-dir", type=str, default="outputs/profile/")
+    parser.add_argument("--include-cache-ops", default=False, type=str2bool)
+    parser.add_argument("--use-cuda-graph", default=False, type=str2bool)
+    parser.add_argument("--enable-relay", default=False, type=str2bool)
+    parser.add_argument("--profile", default=False, type=str2bool)
+    
     args = parser.parse_args()
     print(args)
 
