@@ -138,7 +138,8 @@ class PagedAttention(nn.Module):
         # If key_cache and value_cache are not provided, the new key and value
         # vectors will not be cached. This happens during the initial memory
         # profiling run.
-        if key_cache is not None and value_cache is not None:
+        if key_cache is not None and value_cache is not None \
+            and (input_metadata.slot_mapping is not None):
             cache_ops.reshape_and_cache(
                 key,
                 value,

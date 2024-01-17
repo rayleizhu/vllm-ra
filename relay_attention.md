@@ -39,8 +39,11 @@
     - [x] write a relay fusion kernel with triton
     - [x] modify the paged attention kernel to return log-softmax-exp
     - [ ] use native flash attention kernel to support MQA/GQA
+- benchmark standalone relay attention (teaser)
+    - [x] latency, memory usage, profile
+    - [x] cudagraph mode
+    - [ ] run benchmark and profiling on A100 and plot figures
 - [ ] benchmark with synthetic data
-- [ ] benchmark standalone relay attention (teaser)
 - [ ] benchmark with LongBench
 - [ ] check if we need to change the behavior of tokenizer (e.g. avoid prepending bos token)
 
@@ -60,6 +63,8 @@ python examples/relay_inference.py
 
 ## Trouble shooting
 
+* environment setup
+    - [conda cudatoolkit](https://anaconda.org/nvidia/cuda-toolkit)
 * quantization
     - [vllm-AutoAWQ](https://docs.vllm.ai/en/latest/quantization/auto_awq.html)
     - [Cannot find the config file for awq when load llm with LLaMA-2 + AWQ](https://github.com/vllm-project/vllm/issues/1419)
