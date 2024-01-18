@@ -12,21 +12,6 @@ from vllm.model_executor.input_metadata import InputMetadata
 NUM_BLOCKS = 1024
 PARTITION_SIZE = 512
 
-def str2bool(v:str):
-    """
-    Converts string to bool type; enables command line 
-    arguments in the format of '--arg1 true --arg2 false'
-    """
-    if isinstance(v, bool):
-        return v
-    if v.lower() in ('yes', 'true', 't', 'y', '1'):
-        return True
-    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
-        return False
-    else:
-        raise argparse.ArgumentTypeError('Boolean value expected.')
-
-
 @torch.inference_mode()
 def main(args):
     assert args.num_query_heads % args.num_kv_heads == 0
@@ -193,6 +178,21 @@ def main(args):
                    cf, indent=4)
     
 if __name__ == '__main__':
+
+    def str2bool(v:str):
+        """
+        Converts string to bool type; enables command line 
+        arguments in the format of '--arg1 true --arg2 false'
+        """
+        if isinstance(v, bool):
+            return v
+        if v.lower() in ('yes', 'true', 't', 'y', '1'):
+            return True
+        elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+            return False
+        else:
+            raise argparse.ArgumentTypeError('Boolean value expected.')
+        
     parser = argparse.ArgumentParser(
         description="Benchmark the paged attention kernel.")
     # input config

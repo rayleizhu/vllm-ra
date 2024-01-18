@@ -3,6 +3,8 @@ import argparse
 import time
 from pathlib import Path
 from typing import Optional
+import os.path as osp
+import json
 
 import numpy as np
 import torch
@@ -74,21 +76,44 @@ def main(args: argparse.Namespace):
     run_to_completion(profile_dir=None)
 
     if args.profile:
-        profile_dir = args.profile_result_dir
-        if not profile_dir:
-            profile_dir = Path(".") / "vllm_benchmark_result" / f"latency_result_{time.time()}"
+        # profile_dir = args.profile_result_dir
+        # if not profile_dir:
+        #     profile_dir = Path(".") / "vllm_benchmark_result" / f"latency_result_{time.time()}"
+        profile_dir = osp.join(args.output_dir, "latency_profile")
         print(f"Profiling (results will be saved to '{profile_dir}')...")
-        run_to_completion(profile_dir=args.profile_result_dir)
+        run_to_completion(profile_dir=profile_dir)
+        # NOTE: to avoid any possible overheads, we do not run profiling and 
+        # benchmarking in a single process
         return
 
     # Benchmark.
     latencies = []
     for _ in tqdm(range(args.num_iters), desc="Profiling iterations"):
         latencies.append(run_to_completion(profile_dir=None))
-    print(f'Avg latency: {np.mean(latencies)} seconds')
+    avg_latency = np.mean(latencies)
+    print(f'Avg latency: {np.mean(avg_latency)} seconds')
+
+    result_file = osp.join(args.output_dir, "latency_benchmark.json")
+    with open(result_file, mode='w') as cf:
+        json.dump({"avg_latency": avg_latency}, cf, indent=4)
 
 
 if __name__ == '__main__':
+    
+    def str2bool(v:str):
+        """
+        Converts string to bool type; enables command line 
+        arguments in the format of '--arg1 true --arg2 false'
+        """
+        if isinstance(v, bool):
+            return v
+        if v.lower() in ('yes', 'true', 't', 'y', '1'):
+            return True
+        elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+            return False
+        else:
+            raise argparse.ArgumentTypeError('Boolean value expected.')
+
     parser = argparse.ArgumentParser(
         description='Benchmark the latency of processing a single batch of '
         'requests till completion.')
@@ -100,7 +125,7 @@ if __name__ == '__main__':
                         default=None)
     parser.add_argument('--tensor-parallel-size', '-tp', type=int, default=1)
     parser.add_argument('--prefix-len', type=int, default=0)
-    parser.add_argument('--enable-relay', action="store_true")
+    parser.add_argument('--enable-relay', default=False, type=str2bool)
     parser.add_argument('--input-len', type=int, default=32)
     parser.add_argument('--output-len', type=int, default=128)
     parser.add_argument('--batch-size', type=int, default=8)
@@ -108,13 +133,13 @@ if __name__ == '__main__':
                         type=int,
                         default=1,
                         help='Number of generated sequences per prompt.')
-    parser.add_argument('--use-beam-search', action='store_true')
+    parser.add_argument('--use-beam-search', default=False, type=str2bool)
     parser.add_argument('--num-iters',
                         type=int,
                         default=3,
                         help='Number of iterations to run.')
     parser.add_argument('--trust-remote-code',
-                        action='store_true',
+                        default=False, type=str2bool,
                         help='trust remote code from huggingface')
     parser.add_argument(
         '--dtype',
@@ -126,18 +151,18 @@ if __name__ == '__main__':
         'for FP32 and FP16 models, and BF16 precision '
         'for BF16 models.')
     parser.add_argument('--enforce-eager',
-                        action='store_true',
+                        default=False, type=str2bool,
                         help='enforce eager mode and disable CUDA graph')
     parser.add_argument(
         '--profile',
-        action='store_true',
+        default=False, type=str2bool,
         help='profile the generation process of a single batch')
     parser.add_argument(
-        '--profile-result-dir',
+        '--output-dir',
         type=str,
         default=None,
         help=(
-            'path to save the pytorch profiler output. Can be visualized '
+            'path to save benchmark outputs. The profile results can be visualized '
             'with ui.perfetto.dev or Tensorboard.'
         ))
     args = parser.parse_args()
