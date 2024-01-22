@@ -3,7 +3,7 @@
 set -x
 
 # work load config
-NUM_REQS=16
+NUM_REQS=64
 CONTEXT_LEN=128
 PREFIX_LENs=( 64 128 256 512 1024 )
 

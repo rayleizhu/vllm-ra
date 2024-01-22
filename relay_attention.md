@@ -40,14 +40,14 @@
     - [x] modify the paged attention kernel to return log-softmax-exp
     - [ ] use native flash attention kernel to support MQA/GQA
 - benchmark standalone relay attention (teaser)
-    - [x] latency, memory usage, profile
-    - [x] cudagraph mode
-    - [ ] run benchmark and profiling on A100 and plot figures
-- [ ] benchmark with synthetic data
-    - [ ] throughput
-    - [ ] latency
-        - fixed [a bug of vllm](https://github.com/vllm-project/vllm/pull/2398/files/66f1e084c31e09e5225783b3e18659ca5deebaf6) for OPT and LLAMA models
-- [ ] benchmark with LongBench
+    - [x] script for latency, memory usage, profile; eager & cudagraph mode
+    - [x] run benchmark & profiling, plot figures
+- benchmark for non-interactive applications (exp group 1)
+    - [x] throughput ~~& latency~~ for synthetic workload, plot figures
+        - (partially) fixed [a bug of vllm](https://github.com/vllm-project/vllm/pull/2398/files/66f1e084c31e09e5225783b3e18659ca5deebaf6) for OPT and LLAMA models
+    - [ ] throughput ~~& latency~~ for real workload (ShareGPT dataset), plot figures -> ongoing
+- benchmark for interactive aplications (exp group 2)
+    - [ ] throughput, latency to first token, latency to susequent tokens w/ ShareGPT dataset 
 - [ ] check if we need to change the behavior of tokenizer (e.g. avoid prepending bos token)
     - https://huggingface.co/docs/transformers/main_classes/tokenizer
 
@@ -80,4 +80,11 @@ python examples/relay_inference.py
     - [CUDA semantics - CUDA Graphs](https://pytorch.org/docs/master/notes/cuda.html#constraints)
     - [Transposed read/writes](https://github.com/openai/triton/issues/176)
     - [Visualize DOT graph online for debugging CUDAGraph](https://edotor.net/)
+
+## Useful links
+
+- [Change the huggingface cache directory](https://stackoverflow.com/a/77682809)
+- [+34% higher throughput? #421](https://github.com/vllm-project/vllm/issues/421)
+
+
     

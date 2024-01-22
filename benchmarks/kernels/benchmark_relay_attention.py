@@ -5,6 +5,7 @@ import random
 import time
 import os.path as osp
 import json
+import sys
 
 from vllm.model_executor.layers.attention import PagedAttention
 from vllm.model_executor.input_metadata import InputMetadata
@@ -167,15 +168,30 @@ def main(args):
 
     memory_in_gb = torch.cuda.max_memory_reserved() / 1e9
     latency_in_us = latency * 1e6 
+
+    memory_kv_cache = sys.getsizeof(key_cache.storage()) + \
+        sys.getsizeof(value_cache.storage())
+    memory_kv_cache /= 1e9
+    if prefix_key_cache is not None:
+        memory_prefix_kv_cache = sys.getsizeof(prefix_key_cache.storage()) + \
+            sys.getsizeof(prefix_value_cache.storage())
+    else:
+        memory_prefix_kv_cache = 0
+    memory_prefix_kv_cache /= 1e9
     
     print(f"Kernel running time: {latency_in_us:.3f} us")
     print(f"Memory used: {memory_in_gb:.02f} GB")
+    print(f"KV Cache Memory: {memory_kv_cache:.02f} GB")
+    print(f"Prefix KV Cache Memory: {memory_prefix_kv_cache:.02f} GB")
 
     result_file = osp.join(args.output_dir, "benchmark.json")
     with open(result_file, mode='w') as cf:
         json.dump({"Memory (GB)": memory_in_gb,
-                   "Lantency (us)": latency_in_us},
-                   cf, indent=4)
+                   "Lantency (us)": latency_in_us,
+                   "KV mem (GB)": memory_kv_cache,
+                   "Prefix KV mem (GB)": memory_prefix_kv_cache
+                  },
+                cf, indent=4)
     
 if __name__ == '__main__':
 

@@ -212,8 +212,10 @@ def main(args: argparse.Namespace):
         requests = [(prompt, args.input_len, args.output_len)
                     for _ in range(args.num_prompts)]
     else:
-        # TODO: add shared prefix
-        shared_prefix = None
+        # NOTE: the content of shared prefix does not matter
+        # becasue the output length will always be it of the "ground truth" length
+        # from chatgpt by setting args.output_len to None. See sample_requests
+        shared_prefix = "hello" * (args.prefix_len -1) if args.prefix_len > 0 else None
         requests = sample_requests(args.dataset, args.num_prompts, tokenizer,
                                    args.output_len)
 
