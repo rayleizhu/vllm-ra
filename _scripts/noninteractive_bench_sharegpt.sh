@@ -1,11 +1,33 @@
-data_json="/home/coder/.cache/huggingface/hub/datasets--anon8231489123--ShareGPT_Vicuna_unfiltered/snapshots/192ab2185289094fc556ec8ce5ce1e8e587154ca/ShareGPT_V3_unfiltered_cleaned_split.json"
-model="TheBloke/Llama-2-7b-Chat-AWQ"
-# model="facebook/opt-125m"
-prefixlen=256
+#!/bin/bash
 
-python benchmarks/benchmark_throughput.py \
-    --backend vllm \
-    --dataset $data_json \
-    --model $model \
-    --prefix-len $prefixlen \
-    --num-prompts 100
+PREFIX_LENs=( 64 128 256 512 1024 )
+BACKENDs=( vllm+ vllm )
+NUM_REQS=1000
+MODELs=( meta-llama/Llama-2-7b-hf meta-llama/Llama-2-13b-hf )
+# model="TheBloke/Llama-2-7b-Chat-AWQ"
+# model="facebook/opt-125m"
+
+DATA_JSON=${HF_HOME}/hub/datasets--anon8231489123--ShareGPT_Vicuna_unfiltered/snapshots/192ab2185289094fc556ec8ce5ce1e8e587154ca/ShareGPT_V3_unfiltered_cleaned_split.json
+GPU=$( nvidia-smi --query-gpu=name --format=csv | tail -n1 | tr ' ' '-' )
+NOW=$(date "+%Y-%m-%d-%H.%M.%S")
+
+for MODEL in ${MODELs[@]}; do
+    for PREFIX_LEN in ${PREFIX_LENs[@]}; do
+        for BACKEND in ${BACKENDs[@]}; do
+            model_id=$(echo "$MODEL" | tr '/' '.')
+            # echo $model_id
+            OUTPUT_DIR=outputs/noninteractive_bench_sharegpt/${GPU}/${model_id}/nreqs_${NUM_REQS}.prefixlen_${PREFIX_LEN}.backend_${BACKEND}
+            mkdir -p $OUTPUT_DIR
+            export TOKENIZERS_PARALLELISM=true && \
+            python benchmarks/benchmark_throughput.py \
+                --backend $BACKEND \
+                --dataset $DATA_JSON\
+                --model $MODEL \
+                --prefix-len $PREFIX_LEN \
+                --num-prompts $NUM_REQS \
+                --output-dir $OUTPUT_DIR \
+                2>&1 | tee -a $OUTPUT_DIR/${NOW}.log
+            sleep 1
+        done
+    done
+done
