@@ -4,8 +4,22 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 
 from vllm.config import (CacheConfig, ModelConfig, ParallelConfig,
-                         SchedulerConfig)
+                         SchedulerConfig, SystemPromptConfig)
 
+
+def str2bool(v:str):
+    """
+    Converts string to bool type; enables command line 
+    arguments in the format of '--arg1 true --arg2 false'
+    """
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
 
 @dataclass
 class EngineArgs:
@@ -36,6 +50,10 @@ class EngineArgs:
     enforce_eager: bool = False
     max_context_len_to_capture: int = 8192
     enable_relay_attention: bool = False
+    sys_prompt: Optional[str] = None
+    sys_schema: Optional[str] = None
+    sys_prompt_file: Optional[str] = None
+    sys_schema_file: Optional[str] = None
 
     def __post_init__(self):
         if self.tokenizer is None:
@@ -203,6 +221,11 @@ class EngineArgs:
                             help='maximum context length covered by CUDA '
                             'graphs. When a sequence has context length '
                             'larger than this, we fall back to eager mode.')
+        parser.add_argument('--enable-relay-attention', type=str2bool, default=False)
+        parser.add_argument('--sys-prompt', type=str, default=None)
+        parser.add_argument('--sys-schema', type=str, default=None)
+        parser.add_argument('--sys-prompt-file', type=str, default=None)
+        parser.add_argument('--sys-schema-file', type=str, default=None)
         return parser
 
     @classmethod
@@ -236,7 +259,11 @@ class EngineArgs:
                                            self.max_num_seqs,
                                            model_config.max_model_len,
                                            self.max_paddings)
-        return model_config, cache_config, parallel_config, scheduler_config
+        sys_prompt_config = SystemPromptConfig(self.sys_prompt,
+                                               self.sys_schema,
+                                               self.sys_prompt_file,
+                                               self.sys_schema_file)
+        return model_config, cache_config, parallel_config, scheduler_config, sys_prompt_config
 
 
 @dataclass

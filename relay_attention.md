@@ -85,6 +85,7 @@ python examples/relay_inference.py
 
 - [Change the huggingface cache directory](https://stackoverflow.com/a/77682809)
 - [+34% higher throughput? #421](https://github.com/vllm-project/vllm/issues/421)
+- [Chat prompt format?](https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGML/discussions/3#64b71f7588b86014d7e2dd71)
 
 
     

@@ -5,7 +5,7 @@ from functools import partial
 from typing import TYPE_CHECKING, Any, Iterable, List, Optional, Tuple, Union
 
 from vllm.config import (CacheConfig, ModelConfig, ParallelConfig,
-                         SchedulerConfig)
+                         SchedulerConfig, SystemPromptConfig)
 from vllm.core.scheduler import Scheduler, SchedulerOutputs
 from vllm.engine.arg_utils import EngineArgs
 from vllm.engine.metrics import record_metrics
@@ -66,6 +66,7 @@ class LLMEngine:
         cache_config: CacheConfig,
         parallel_config: ParallelConfig,
         scheduler_config: SchedulerConfig,
+        sys_prompt_config: SystemPromptConfig,
         distributed_init_method: str,
         placement_group: Optional["PlacementGroup"],
         log_stats: bool,
@@ -103,6 +104,7 @@ class LLMEngine:
         self.cache_config = cache_config
         self.parallel_config = parallel_config
         self.scheduler_config = scheduler_config
+        self.sys_prompt_config = sys_prompt_config
         self.log_stats = log_stats
         self._verify_args()
 
@@ -123,6 +125,16 @@ class LLMEngine:
         # worker.init_cache_engine() to allocate physical blocks,
         # worker.warm_up_model() to build cuda graph
         self._init_cache()
+        
+        if self.model_config.enable_relay_attention:
+            if self.sys_prompt_config.has_sys_prompt:
+                self.fill_prefix_kv_cache(
+                    shared_prefix=self.sys_prompt_config.get_shared_prefix())
+            else:
+                logger.warning("Though enable_relay_attention is set as true, "
+                               "relay attention is not activated due to no system "
+                               "prompt is provided.")
+                
 
         # Create the scheduler.
         self.scheduler = Scheduler(scheduler_config, cache_config)
@@ -311,9 +323,26 @@ class LLMEngine:
         """
         if arrival_time is None:
             arrival_time = time.monotonic()
+            
+        # FIXME (ray): prompt is always assumed to be unformatted
+        # but not for prompt_token_ids. This is inconsistent
         if prompt_token_ids is None:
             assert prompt is not None
+            if self.sys_prompt_config.has_sys_prompt:
+                prompt = self.sys_prompt_config.get_formatted_request(
+                    user_prompt=prompt,
+                    include_sys_prompt=(not self.model_config.enable_relay_attention)
+                )
             prompt_token_ids = self.tokenizer.encode(prompt)
+        # else:
+        #     # NOTE: make the meaning of prompt and prompt_token_ids consistent
+        #     # i.e. always assume they are user prompts
+        #     if self.sys_prompt_config.has_sys_prompt:
+        #         prompt_token_ids = self.sys_prompt_config.get_formatted_tokens(
+        #             usr_prompt_ids=prompt_token_ids,
+        #             include_sys_prompt=(not self.model_config.enable_relay_attention)
+        #         )
+            
             # FIXME (ray): there may be bugs in the tokenizer with relay attention
             # if self.model_config.enable_relay_attention:
             #     prompt_token_ids=prompt_token_ids[1:]

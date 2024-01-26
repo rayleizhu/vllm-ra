@@ -12,11 +12,12 @@ NUM_QUERY_HEADS=52
 NUM_KV_HEADS=52
 HEAD_SIZE=128
 
+GPU=$( nvidia-smi --query-gpu=name --format=csv | tail -n1 | tr ' ' '-' )
 NOW=$(date "+%Y-%m-%d-%H.%M.%S")
 
 for PREFIX_LEN in ${PREFIX_LENs[@]}; do
     for ENABLE_RELAY in false true; do
-        OUTPUT_DIR=outputs/relay_op/nreqs_${NUM_REQS}.ctxlen_${CONTEXT_LEN}.prefixlen_${PREFIX_LEN}.relay_${ENABLE_RELAY}
+        OUTPUT_DIR=outputs/relay_op/${GPU}/nreqs_${NUM_REQS}.ctxlen_${CONTEXT_LEN}.prefixlen_${PREFIX_LEN}.relay_${ENABLE_RELAY}
         mkdir -p $OUTPUT_DIR
         python benchmarks/kernels/benchmark_relay_attention.py \
             --num-reqs $NUM_REQS \

@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import List, Optional, Union
 import os
 
 import torch
@@ -405,6 +405,60 @@ class SchedulerConfig:
                 "be greater than or equal to max_num_seqs "
                 f"({self.max_num_seqs}).")
 
+
+class SystemPromptConfig:
+    """
+    sys_schema: a string be like "..aaaa...{__SYS_PROMPT}..bbbb..{__USR_PROMPT}..ccccc.."
+    """
+    def __init__(
+        self,
+        sys_prompt: Optional[str] = None,
+        sys_schema: Optional[str] = None,
+        sys_prompt_file: Optional[str] = None,
+        sys_schema_file: Optional[str] = None,
+    ) -> None:
+        self.prompt = sys_prompt
+        self.schema = sys_schema
+        
+        # files have higher priority
+        if sys_prompt_file is not None:
+            with open(sys_prompt_file, "r") as file:
+               self.prompt = file.read()
+        
+        if sys_schema_file is not None:
+            with open(sys_schema_file, "r") as file:
+               self.schema = file.read()
+        
+        self.has_sys_prompt = False
+        if isinstance(self.prompt, str):
+            self.prompt = self.prompt.strip()
+            self.has_sys_prompt = len(self.prompt) > 0
+        
+        if self.has_sys_prompt:
+            assert ( isinstance(self.schema, str) 
+                and len(self.schema) > 0 )
+            substring = "{__USR_PROMPT}"
+            index = self.schema.find(substring)
+            assert index > 0
+            self.prefix_schema= self.schema[:index]
+            assert "{__SYS_PROMPT}" in  self.prefix_schema
+            self.request_schema = self.schema[index:]
+            assert self.request_schema.startswith(substring)
+        else:
+            self.prefix_schema = None
+            self.request_schema = None
+            
+    def get_shared_prefix(self)->str:
+        return self.prefix_schema.format(__SYS_PROMPT=self.prompt)
+    
+    def get_formatted_request(self, user_prompt:str, include_sys_prompt:bool)->str:
+        if include_sys_prompt:
+            formatted = self.schema.format(__SYS_PROMPT=self.prompt.strip(),
+                                           __USR_PROMPT=user_prompt.strip())
+        else:
+            formatted = self.request_schema.format(__USR_PROMPT=user_prompt.strip())
+        return formatted
+            
 
 _STR_DTYPE_TO_TORCH_DTYPE = {
     "half": torch.float16,

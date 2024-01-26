@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PREFIX_LENs=( 64 128 256 512 1024 )
+PREFIX_LENs=( 64 128 256 512 1024 2048 )
 BACKENDs=( vllm+ vllm )
 NUM_REQS=1000
 MODELs=( meta-llama/Llama-2-7b-hf meta-llama/Llama-2-13b-hf )

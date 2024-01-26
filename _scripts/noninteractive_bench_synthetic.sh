@@ -13,6 +13,7 @@ NUM_REQS=256
 # llama2 30B config
 MODEL=meta-llama/Llama-2-7b-hf
 
+GPU=$( nvidia-smi --query-gpu=name --format=csv | tail -n1 | tr ' ' '-' )
 NOW=$(date "+%Y-%m-%d-%H.%M.%S")
 
 for IO in ${IOs[@]}; do
@@ -23,7 +24,7 @@ for IO in ${IOs[@]}; do
         for BACKEND in ${BACKENDs[@]}; do
             model_id=$(echo "$MODEL" | tr '/' '.')
             # echo $model_id
-            OUTPUT_DIR=outputs/llm_throughput_syn/${model_id}/nreqs_${NUM_REQS}.ctxlen_${CONTEXT_LEN}.outlen_${OUTPUT_LEN}.prefixlen_${PREFIX_LEN}.backend_${BACKEND}
+            OUTPUT_DIR=outputs/llm_throughput_syn/${GPU}/${model_id}/nreqs_${NUM_REQS}.ctxlen_${CONTEXT_LEN}.outlen_${OUTPUT_LEN}.prefixlen_${PREFIX_LEN}.backend_${BACKEND}
             mkdir -p $OUTPUT_DIR
             python benchmarks/benchmark_throughput.py \
                 --num-prompts $NUM_REQS \

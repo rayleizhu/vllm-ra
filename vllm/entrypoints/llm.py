@@ -82,6 +82,10 @@ class LLM:
         enforce_eager: bool = False,
         max_context_len_to_capture: int = 8192,
         enable_relay_attention: bool = False,
+        sys_prompt: str = None,
+        sys_schema: str = None,
+        sys_prompt_file: str = None,
+        sys_schema_file: str = None,
         **kwargs,
     ) -> None:
         if "disable_log_stats" not in kwargs:
@@ -102,6 +106,10 @@ class LLM:
             enforce_eager=enforce_eager,
             max_context_len_to_capture=max_context_len_to_capture,
             enable_relay_attention=enable_relay_attention,
+            sys_prompt=sys_prompt,
+            sys_schema=sys_schema,
+            sys_prompt_file=sys_prompt_file,
+            sys_schema_file=sys_schema_file,
             **kwargs,
         )
         self.llm_engine = LLMEngine.from_engine_args(engine_args)
