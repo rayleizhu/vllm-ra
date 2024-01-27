@@ -28,7 +28,8 @@ from transformers import PreTrainedTokenizerBase
 from vllm.transformers_utils.tokenizer import get_tokenizer
 
 # (prompt len, output len, latency)
-REQUEST_LATENCY: List[Tuple[int, int, float]] = []
+# REQUEST_LATENCY: List[Tuple[int, int, float]] = []
+REQUEST_LATENCY: List[Tuple[int, int, float, float]] = []
 
 
 def sample_requests(
@@ -133,13 +134,16 @@ async def send_request(
         }
     else:
         raise ValueError(f"Unknown backend: {backend}")
-
+    
+    first_token_time = -1
     timeout = aiohttp.ClientTimeout(total=3 * 3600)
     async with aiohttp.ClientSession(timeout=timeout) as session:
         while True:
             async with session.post(api_url, headers=headers, json=pload) as response:
                 chunks = []
                 async for chunk, _ in response.content.iter_chunks():
+                    # if len(chunks) == 0:
+                    #     first_token_time = time.perf_counter()
                     chunks.append(chunk)
             output = b"".join(chunks).decode("utf-8")
             output = json.loads(output)
@@ -149,8 +153,9 @@ async def send_request(
                 break
 
     request_end_time = time.perf_counter()
+    time_to_first_token = first_token_time - request_start_time
     request_latency = request_end_time - request_start_time
-    REQUEST_LATENCY.append((prompt_len, output_len, request_latency))
+    REQUEST_LATENCY.append((prompt_len, output_len, request_latency, time_to_first_token))
 
 
 async def benchmark(
@@ -185,23 +190,38 @@ def main(args: argparse.Namespace):
                           args.use_beam_search, args.request_rate))
     benchmark_end_time = time.perf_counter()
     benchmark_time = benchmark_end_time - benchmark_start_time
+    throughput = args.num_prompts / benchmark_time
     print(f"Total time: {benchmark_time:.2f} s")
-    print(f"Throughput: {args.num_prompts / benchmark_time:.2f} requests/s")
+    print(f"Throughput: {throughput:.2f} requests/s")
 
     # Compute the latency statistics.
-    avg_latency = np.mean([latency for _, _, latency in REQUEST_LATENCY])
+    avg_latency = np.mean([latency for _, _, latency, _ in REQUEST_LATENCY])
     print(f"Average latency: {avg_latency:.2f} s")
     avg_per_token_latency = np.mean([
         latency / (prompt_len + output_len)
-        for prompt_len, output_len, latency in REQUEST_LATENCY
+        for prompt_len, output_len, latency, _ in REQUEST_LATENCY
     ])
     print(f"Average latency per token: {avg_per_token_latency:.2f} s")
     avg_per_output_token_latency = np.mean([
         latency / output_len
-        for _, output_len, latency in REQUEST_LATENCY
+        for _, output_len, latency, _ in REQUEST_LATENCY
     ])
     print("Average latency per output token: "
           f"{avg_per_output_token_latency:.2f} s")
+    avg_time_to_fisrt_token = np.mean([
+        ttft for _, _, _, ttft in REQUEST_LATENCY
+    ])
+    
+    if args.result_json is not None:
+        with open(args.result_json, mode='w') as cf:
+            out_dict = dict(
+                total_time=benchmark_time,
+                throughput=throughput,
+                avg_latency=avg_latency,
+                avg_per_token_latency=avg_per_token_latency,
+                avg_per_output_token_latency=avg_per_output_token_latency,
+                avg_time_to_fisrt_token=avg_time_to_fisrt_token)
+            json.dump(out_dict, cf, indent=4)
 
 
 if __name__ == "__main__":
@@ -229,5 +249,6 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument('--trust-remote-code', action='store_true',
                         help='trust remote code from huggingface')
+    parser.add_argument("--result-json", type=str, default=None)
     args = parser.parse_args()
     main(args)

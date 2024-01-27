@@ -75,9 +75,17 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--ssl-keyfile", type=str, default=None)
     parser.add_argument("--ssl-certfile", type=str, default=None)
+    parser.add_argument("--pseudo-prefix-len", type=int, default=0,
+                        help="for benchmark purpose only.")
     parser = AsyncEngineArgs.add_cli_args(parser)
     args = parser.parse_args()
-
+    
+    if args.pseudo_prefix_len > 0:
+        assert args.sys_prompt_file is None
+        assert args.sys_schema_file is None
+        args.sys_prompt = "hi " * (args.pseudo_prefix_len - 2)
+        args.sys_schema = "{__SYS_PROMPT} {__USR_PROMPT}"
+        
     engine_args = AsyncEngineArgs.from_cli_args(args)
     engine = AsyncLLMEngine.from_engine_args(engine_args)
 
