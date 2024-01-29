@@ -3,12 +3,12 @@
 # set -x
 
 # work load config
-IOs=( "64,128" "128,256" "256,512")
+IOs=( "64,128" "128,256" "256,256" "256,512")
 # IOs=( "256,512" )
-PREFIX_LENs=( 64 128 256 512 1024 )
+PREFIX_LENs=( 512 1024 2048 64 128 256 )
 # PREFIX_LENs=( 1024 )
 BACKENDs=( vllm+ vllm )
-NUM_REQS=256
+NUM_REQS=1000
 
 # llama2 30B config
 MODEL=meta-llama/Llama-2-7b-hf
@@ -22,9 +22,10 @@ for IO in ${IOs[@]}; do
     # echo $CONTEXT_LEN $OUTPUT_LEN
     for PREFIX_LEN in ${PREFIX_LENs[@]}; do
         for BACKEND in ${BACKENDs[@]}; do
-            model_id=$(echo "$MODEL" | tr '/' '.')
+            # model_id=$(echo "$MODEL" | tr '/' '.')
+            model_id=${MODEL#*/}
             # echo $model_id
-            OUTPUT_DIR=outputs/llm_throughput_syn/${GPU}/${model_id}/nreqs_${NUM_REQS}.ctxlen_${CONTEXT_LEN}.outlen_${OUTPUT_LEN}.prefixlen_${PREFIX_LEN}.backend_${BACKEND}
+            OUTPUT_DIR=outputs/noninteractive_bench_synthetic/${GPU}/${model_id}/nreqs_${NUM_REQS}.ctxlen_${CONTEXT_LEN}.outlen_${OUTPUT_LEN}.prefixlen_${PREFIX_LEN}.backend_${BACKEND}
             mkdir -p $OUTPUT_DIR
             python benchmarks/benchmark_throughput.py \
                 --num-prompts $NUM_REQS \
