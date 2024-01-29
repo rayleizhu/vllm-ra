@@ -33,7 +33,7 @@ for IO in ${IOs[@]}; do
                 --output-len $OUTPUT_LEN \
                 --output-dir $OUTPUT_DIR \
                 --prefix-len $PREFIX_LEN \
-                --model $MODEL \
+                --model $LOCAL_PATH \
                 --backend $BACKEND \
                 2>&1 | tee -a $OUTPUT_DIR/${NOW}.log
             sleep 1
