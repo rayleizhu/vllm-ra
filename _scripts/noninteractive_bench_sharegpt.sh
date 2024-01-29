@@ -1,7 +1,7 @@
 #!/bin/bash
 
 PREFIX_LENs=( 64 128 256 512 1024 2048 )
-BACKENDs=( vllm+ vllm )
+BACKENDs=( vllm+ )
 NUM_REQS=1000
 MODELs=( meta-llama/Llama-2-7b-hf meta-llama/Llama-2-13b-hf )
 # model="TheBloke/Llama-2-7b-Chat-AWQ"
@@ -16,7 +16,7 @@ for MODEL in ${MODELs[@]}; do
         for BACKEND in ${BACKENDs[@]}; do
             model_id=$(echo "$MODEL" | tr '/' '.')
             # echo $model_id
-            OUTPUT_DIR=outputs/noninteractive_bench_sharegpt/${GPU}/${model_id}/nreqs_${NUM_REQS}.prefixlen_${PREFIX_LEN}.backend_${BACKEND}
+            OUTPUT_DIR=outputs/noninteractive_bench_sharegpt/${GPU}/${model_id}/nreqs_${NUM_REQS}.prefixlen_${PREFIX_LEN}.backend_vllm+pc
             mkdir -p $OUTPUT_DIR
             export TOKENIZERS_PARALLELISM=true && \
             python benchmarks/benchmark_throughput.py \

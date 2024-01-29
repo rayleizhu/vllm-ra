@@ -100,34 +100,34 @@ class PagedAttention(nn.Module):
         if input_metadata.prefix_length > 0:
             # FIXME (ray): window attention
             # NOTE: flash attention natively supports MQA/GQA
-            output_pre, lse_pre = flash_attn_with_kvcache(
-                query.view(1, -1, self.num_heads, self.head_size), # (1, bsz*len, num_heads, head_size)
-                k_cache=prefix_key_cache, # (1, prefix_length, num_kv_heads, head_size)
-                v_cache=prefix_value_cache, # (1, prefix_length, num_kv_heads, head_size)
-                cache_seqlens=input_metadata.prefix_length_buffer, # (1, )
-                softmax_scale=self.scale)
-            output_pre:torch.Tensor = output_pre.view(-1, self.num_heads, self.head_size)
-            # .view() method does not change the data_ptr(), and keeps launch parameters (stride, size, etc) consistent
-            # during capture and replay. However, transpose changes the strides
-            # (1, self.num_heads, batch_size*seq_len) -> (batch_size*seq_len, self.num_heads, 1)
-            # lse_pre:torch.Tensor = lse_pre.transpose(1, 2).reshape(-1, self.num_heads, 1)
-            # lse_pre:torch.Tensor = lse_pre.transpose(1, 2).reshape(-1, self.num_heads, 1).contiguous()
-            # lse_pre:torch.Tensor = lse_pre.transpose(0, 2).contiguous()
-            # lse_pre:torch.Tensor = lse_pre.squeeze(0).transpose(0, 1).view(-1, self.num_heads, 1).contiguous()
-            lse_pre:torch.Tensor = lse_pre.squeeze(0)
-            trans_lse_pre = True
-
-            # NOTE: use the snippet below to simulate prompt cache
-            # assert (prefix_key_cache is not None) and (prefix_value_cache is not None)
             # output_pre, lse_pre = flash_attn_with_kvcache(
-            #     query.view(batch_size, seq_len, self.num_heads, self.head_size), # (bsz, len, num_heads, head_size)
-            #     k_cache=prefix_key_cache.expand(batch_size, -1, -1, -1), # (bsz, prefix_length, num_kv_heads, head_size)
-            #     v_cache=prefix_value_cache.expand(batch_size, -1, -1, -1), # (1, prefix_length, num_kv_heads, head_size)
-            #     cache_seqlens=input_metadata.prefix_length_buffer.repeat(batch_size), # (1, )
+            #     query.view(1, -1, self.num_heads, self.head_size), # (1, bsz*len, num_heads, head_size)
+            #     k_cache=prefix_key_cache, # (1, prefix_length, num_kv_heads, head_size)
+            #     v_cache=prefix_value_cache, # (1, prefix_length, num_kv_heads, head_size)
+            #     cache_seqlens=input_metadata.prefix_length_buffer, # (1, )
             #     softmax_scale=self.scale)
             # output_pre:torch.Tensor = output_pre.view(-1, self.num_heads, self.head_size)
-            # lse_pre:torch.Tensor = lse_pre.transpose(1, 2).reshape(batch_size*seq_len, self.num_heads).contiguous()
-            # trans_lse_pre = False
+            # # .view() method does not change the data_ptr(), and keeps launch parameters (stride, size, etc) consistent
+            # # during capture and replay. However, transpose changes the strides
+            # # (1, self.num_heads, batch_size*seq_len) -> (batch_size*seq_len, self.num_heads, 1)
+            # # lse_pre:torch.Tensor = lse_pre.transpose(1, 2).reshape(-1, self.num_heads, 1)
+            # # lse_pre:torch.Tensor = lse_pre.transpose(1, 2).reshape(-1, self.num_heads, 1).contiguous()
+            # # lse_pre:torch.Tensor = lse_pre.transpose(0, 2).contiguous()
+            # # lse_pre:torch.Tensor = lse_pre.squeeze(0).transpose(0, 1).view(-1, self.num_heads, 1).contiguous()
+            # lse_pre:torch.Tensor = lse_pre.squeeze(0)
+            # trans_lse_pre = True
+
+            # NOTE: use the snippet below to simulate prompt cache
+            assert (prefix_key_cache is not None) and (prefix_value_cache is not None)
+            output_pre, lse_pre = flash_attn_with_kvcache(
+                query.view(batch_size, seq_len, self.num_heads, self.head_size), # (bsz, len, num_heads, head_size)
+                k_cache=prefix_key_cache.expand(batch_size, -1, -1, -1), # (bsz, prefix_length, num_kv_heads, head_size)
+                v_cache=prefix_value_cache.expand(batch_size, -1, -1, -1), # (1, prefix_length, num_kv_heads, head_size)
+                cache_seqlens=input_metadata.prefix_length_buffer.repeat(batch_size), # (1, )
+                softmax_scale=self.scale)
+            output_pre:torch.Tensor = output_pre.view(-1, self.num_heads, self.head_size)
+            lse_pre:torch.Tensor = lse_pre.transpose(1, 2).reshape(batch_size*seq_len, self.num_heads).contiguous()
+            trans_lse_pre = False
 
         # Reshape the query, key, and value tensors.
         query = query.view(-1, self.num_heads, self.head_size) # (bsz*seqlen, nheads, head_size)
