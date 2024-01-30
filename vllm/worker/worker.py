@@ -52,6 +52,7 @@ class Worker:
             n_kvheads = self.model_config.get_num_kv_heads(self.parallel_config)
             head_dim = self.model_config.get_head_size()
             n_layers = self.model_config.get_num_layers(self.parallel_config)
+            # FIXME (ray): put it to a seprate and call in llm_engine avoid wrong tensor placement in distributed mode
             self.prefix_gpu_cache = [(torch.empty(1, max_len, n_kvheads, head_dim,
                                                   dtype=self.model_config.dtype,
                                                   device='cuda'),
