@@ -1,7 +1,7 @@
-REQ_PER_SECs=( 8.0 )
-PREFIX_LENs=( 512 )
-ENABLE_RELAYs=( true )
-MODEL=meta-llama/Llama-2-7b-hf
+REQ_PER_SECs=( 0.3 0.5 )
+PREFIX_LENs=( 2048 )
+ENABLE_RELAYs=( false )
+MODEL=meta-llama/Llama-2-13b-hf
 DATA_JSON=${HF_HOME}/hub/datasets--anon8231489123--ShareGPT_Vicuna_unfiltered/snapshots/192ab2185289094fc556ec8ce5ce1e8e587154ca/ShareGPT_V3_unfiltered_cleaned_split.json
 
 GPU=$( nvidia-smi --query-gpu=name --format=csv | tail -n1 | tr ' ' '-' )
@@ -21,7 +21,8 @@ wait_uitil_setup(){
 for PREFIX_LEN in ${PREFIX_LENs[@]}; do
     for REQ_PER_SEC in ${REQ_PER_SECs[@]}; do
         for ENABLE_RELAY in ${ENABLE_RELAYs[@]}; do
-            model_id=${MODEL#*/}
+            # model_id=${MODEL#*/}
+            model_id=$( basename $MODEL )
             OUTPUT_DIR=outputs/interactive_bench_sharegpt/${GPU}/${model_id}/reqrate_${REQ_PER_SEC}-prefixlen_${PREFIX_LEN}-relay_${ENABLE_RELAY}
             SERVER_LOG=${OUTPUT_DIR}/server_${NOW}.log
             CLIENT_LOG=${OUTPUT_DIR}/client_${NOW}.log
