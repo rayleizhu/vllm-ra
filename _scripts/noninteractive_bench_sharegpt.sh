@@ -14,7 +14,7 @@ NOW=$(date "+%Y-%m-%d-%H.%M.%S")
 for MODEL in ${MODELs[@]}; do
     for PREFIX_LEN in ${PREFIX_LENs[@]}; do
         for BACKEND in ${BACKENDs[@]}; do
-            model_id=$(echo "$MODEL" | tr '/' '.')
+            model_id=$( basename $MODEL )
             # echo $model_id
             OUTPUT_DIR=outputs/noninteractive_bench_sharegpt/${GPU}/${model_id}/nreqs_${NUM_REQS}.prefixlen_${PREFIX_LEN}.backend_${BACKEND}
             mkdir -p $OUTPUT_DIR
@@ -26,6 +26,7 @@ for MODEL in ${MODELs[@]}; do
                 --prefix-len $PREFIX_LEN \
                 --num-prompts $NUM_REQS \
                 --output-dir $OUTPUT_DIR \
+                --load-format dummy \
                 2>&1 | tee -a $OUTPUT_DIR/${NOW}.log
             sleep 1
         done

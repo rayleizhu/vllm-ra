@@ -3,7 +3,7 @@
 # set -x
 
 # work load config
-IOs=( "64,128" "128,256" "256,256" "256,512")
+IOs=( "64,128" "128,256" "256,512")
 # IOs=( "256,512" )
 PREFIX_LENs=( 512 1024 2048 64 128 256 )
 # PREFIX_LENs=( 1024 )
@@ -23,7 +23,7 @@ for IO in ${IOs[@]}; do
     for PREFIX_LEN in ${PREFIX_LENs[@]}; do
         for BACKEND in ${BACKENDs[@]}; do
             # model_id=$(echo "$MODEL" | tr '/' '.')
-            model_id=${MODEL#*/}
+            model_id=$( basename $MODEL )
             # echo $model_id
             OUTPUT_DIR=outputs/noninteractive_bench_synthetic/${GPU}/${model_id}/nreqs_${NUM_REQS}.ctxlen_${CONTEXT_LEN}.outlen_${OUTPUT_LEN}.prefixlen_${PREFIX_LEN}.backend_${BACKEND}
             mkdir -p $OUTPUT_DIR
@@ -35,6 +35,7 @@ for IO in ${IOs[@]}; do
                 --prefix-len $PREFIX_LEN \
                 --model $MODEL \
                 --backend $BACKEND \
+                --load-format dummy \
                 2>&1 | tee -a $OUTPUT_DIR/${NOW}.log
             sleep 1
         done
