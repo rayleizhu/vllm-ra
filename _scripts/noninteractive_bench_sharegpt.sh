@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PREFIX_LENs=( 64 128 256 512 1024 2048 )
+PREFIX_LENs=( 512 1024 2048 64 128 256 )
 BACKENDs=( vllm+ )
 NUM_REQS=1000
 MODELs=( meta-llama/Llama-2-7b-hf meta-llama/Llama-2-13b-hf )
@@ -14,7 +14,8 @@ NOW=$(date "+%Y-%m-%d-%H.%M.%S")
 for MODEL in ${MODELs[@]}; do
     for PREFIX_LEN in ${PREFIX_LENs[@]}; do
         for BACKEND in ${BACKENDs[@]}; do
-            model_id=$(echo "$MODEL" | tr '/' '.')
+            # model_id=$(echo "$MODEL" | tr '/' '.')
+            model_id=$( basename $MODEL )
             # echo $model_id
             OUTPUT_DIR=outputs/noninteractive_bench_sharegpt/${GPU}/${model_id}/nreqs_${NUM_REQS}.prefixlen_${PREFIX_LEN}.backend_vllm+pc
             mkdir -p $OUTPUT_DIR
