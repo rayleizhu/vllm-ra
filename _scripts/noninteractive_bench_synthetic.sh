@@ -23,7 +23,7 @@ for IO in ${IOs[@]}; do
     for PREFIX_LEN in ${PREFIX_LENs[@]}; do
         for BACKEND in ${BACKENDs[@]}; do
             # model_id=$(echo "$MODEL" | tr '/' '.')
-            model_id=$( basename $MODEL )
+            model_id=${MODEL#*/}
             # echo $model_id
             OUTPUT_DIR=outputs/noninteractive_bench_synthetic/${GPU}/${model_id}/nreqs_${NUM_REQS}.ctxlen_${CONTEXT_LEN}.outlen_${OUTPUT_LEN}.prefixlen_${PREFIX_LEN}.backend_${BACKEND}
             mkdir -p $OUTPUT_DIR
