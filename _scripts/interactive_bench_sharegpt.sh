@@ -1,5 +1,5 @@
-REQ_PER_SECs=( 6.0 )
-PREFIX_LENs=(1024 512 )
+REQ_PER_SECs=( 3.5 )
+PREFIX_LENs=( 512 )
 MODEL=meta-llama/Llama-2-7b-hf
 DATA_JSON=${HF_HOME}/hub/datasets--anon8231489123--ShareGPT_Vicuna_unfiltered/snapshots/192ab2185289094fc556ec8ce5ce1e8e587154ca/ShareGPT_V3_unfiltered_cleaned_split.json
 
