@@ -11,7 +11,7 @@ BACKENDs=( vllm+ vllm )
 NUM_REQS=1000
 
 # llama2 30B config
-MODEL=meta-llama/Llama-2-7b-hf
+MODEL=meta-llama/Llama-2-13b-hf
 
 GPU=$( nvidia-smi --query-gpu=name --format=csv | tail -n1 | tr ' ' '-' )
 NOW=$(date "+%Y-%m-%d-%H.%M.%S")
