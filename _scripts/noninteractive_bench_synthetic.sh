@@ -3,7 +3,7 @@
 # set -x
 
 # work load config
-IOs=( "64,128" "128,256" "256,256" "256,512")
+IOs=( "64,128" "128,256" "256,512")
 # IOs=( "256,512" )
 PREFIX_LENs=( 512 1024 2048 64 128 256 )
 # PREFIX_LENs=( 1024 )
@@ -11,7 +11,7 @@ BACKENDs=( vllm+ vllm )
 NUM_REQS=1000
 
 # llama2 30B config
-MODEL=meta-llama/Llama-2-7b-hf
+MODEL=meta-llama/Llama-2-13b-hf
 
 GPU=$( nvidia-smi --query-gpu=name --format=csv | tail -n1 | tr ' ' '-' )
 NOW=$(date "+%Y-%m-%d-%H.%M.%S")
@@ -35,6 +35,7 @@ for IO in ${IOs[@]}; do
                 --prefix-len $PREFIX_LEN \
                 --model $MODEL \
                 --backend $BACKEND \
+                --load-format dummy \
                 2>&1 | tee -a $OUTPUT_DIR/${NOW}.log
             sleep 1
         done

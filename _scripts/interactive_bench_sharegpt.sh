@@ -1,6 +1,6 @@
-REQ_PER_SECs=( 8.0 )
+REQ_PER_SECs=( 1.0 1.5 )
 PREFIX_LENs=( 512 )
-ENABLE_RELAYs=( true )
+ENABLE_RELAYs=( false )
 MODEL=meta-llama/Llama-2-7b-hf
 DATA_JSON=${HF_HOME}/hub/datasets--anon8231489123--ShareGPT_Vicuna_unfiltered/snapshots/192ab2185289094fc556ec8ce5ce1e8e587154ca/ShareGPT_V3_unfiltered_cleaned_split.json
 
@@ -34,7 +34,7 @@ for PREFIX_LEN in ${PREFIX_LENs[@]}; do
                     --model $MODEL --swap-space 16 \
                     --disable-log-requests \
                     --enable-relay-attention $ENABLE_RELAY \
-                    --pseudo-prefix-le $PREFIX_LEN \
+                    --pseudo-prefix-len $PREFIX_LEN \
                     &> ${SERVER_LOG} &
             wait_uitil_setup ${SERVER_LOG}
             sleep 2
