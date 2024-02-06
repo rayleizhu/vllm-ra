@@ -113,7 +113,9 @@ class PhiAttention(nn.Module):
         )
 
         scaling = self.head_size**-0.5
-        rotary_dim = config.rotary_dim
+        # rotary_dim = config.rotary_dim
+        rotary_dim = int(config.partial_rotary_factor *
+                         (config.hidden_size // config.num_attention_heads))
         assert rotary_dim % 2 == 0
 
         # pylint: disable=C0301
