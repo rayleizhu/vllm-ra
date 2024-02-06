@@ -124,17 +124,7 @@ class LLMEngine:
         # This function call worker.profile_num_available_blocks() to analyze memory usage,
         # worker.init_cache_engine() to allocate physical blocks,
         # worker.warm_up_model() to build cuda graph
-        self._init_cache()
-        
-        if self.model_config.enable_relay_attention:
-            if self.sys_prompt_config.has_sys_prompt:
-                self.fill_prefix_kv_cache(
-                    shared_prefix=self.sys_prompt_config.get_shared_prefix())
-            else:
-                logger.warning("Though enable_relay_attention is set as true, "
-                               "relay attention is not activated due to no system "
-                               "prompt is provided.")
-                
+        self._init_cache()                
 
         # Create the scheduler.
         self.scheduler = Scheduler(scheduler_config, cache_config)
@@ -229,6 +219,10 @@ class LLMEngine:
 
     def _init_cache(self) -> None:
         """Profiles the memory usage and initializes the KV cache."""
+
+        # allocate the system KV cache first to allow precise memory usage profiling
+        self._run_workers("init_prefix_cache")
+
         # Get the maximum number of blocks that can be allocated on GPU and CPU.
         num_blocks = self._run_workers(
             "profile_num_available_blocks",
@@ -268,6 +262,15 @@ class LLMEngine:
         # Warm up the model. This includes capturing the model into CUDA graph
         # if enforce_eager is False.
         self._run_workers("warm_up_model")
+
+        if self.model_config.enable_relay_attention:
+            if self.sys_prompt_config.has_sys_prompt:
+                self.fill_prefix_kv_cache(
+                    shared_prefix=self.sys_prompt_config.get_shared_prefix())
+            else:
+                logger.warning("Though enable_relay_attention is set as true, "
+                               "relay attention is not activated due to no system "
+                               "prompt is provided.")
 
     @classmethod
     def from_engine_args(cls, engine_args: EngineArgs) -> "LLMEngine":
