@@ -135,12 +135,15 @@ class PhiAttention(nn.Module):
         hidden_states: torch.Tensor,
         kv_cache: KVCache,
         input_metadata: InputMetadata,
+        prefix_kv_cache: KVCache
     ) -> torch.Tensor:
         qkv, _ = self.Wqkv(hidden_states)
         q, k, v = qkv.chunk(chunks=3, dim=-1)
         q, k = self.rotary_emb(position_ids, q, k)
         k_cache, v_cache = kv_cache
-        attn_output = self.attn(q, k, v, k_cache, v_cache, input_metadata)
+        prefix_k_cache, prefix_v_cache = prefix_kv_cache
+        attn_output = self.attn(q, k, v, k_cache, v_cache, input_metadata,
+                                prefix_k_cache, prefix_v_cache)
         output, _ = self.out_proj(attn_output)
         return output
 
@@ -193,6 +196,7 @@ class PhiLayer(nn.Module):
         hidden_states: torch.Tensor,
         kv_cache: KVCache,
         input_metadata: InputMetadata,
+        prefix_kv_cache: KVCache
     ) -> torch.Tensor:
         residual = hidden_states
         hidden_states = self.ln(hidden_states)
@@ -201,6 +205,7 @@ class PhiLayer(nn.Module):
             hidden_states=hidden_states,
             kv_cache=kv_cache,
             input_metadata=input_metadata,
+            prefix_kv_cache=prefix_kv_cache
         )
         feed_forward_hidden_states = self.mlp(hidden_states)
         hidden_states = attn_outputs + feed_forward_hidden_states + residual
@@ -227,6 +232,7 @@ class PhiModel(nn.Module):
         positions: torch.Tensor,
         kv_caches: List[KVCache],
         input_metadata: InputMetadata,
+        prefix_kv_caches: List[KVCache]
     ) -> torch.Tensor:
         hidden_states = self.embd(input_ids)
         for i in range(self.config.num_hidden_layers):
@@ -236,6 +242,7 @@ class PhiModel(nn.Module):
                 hidden_states,
                 kv_caches[i],
                 input_metadata,
+                prefix_kv_caches[i]
             )
         return hidden_states
 
@@ -262,7 +269,12 @@ class PhiForCausalLM(nn.Module):
 
         self.transformer = PhiModel(config, linear_method)
         self.lm_head = PhiCausalLMHead(config)
-        self.sampler = Sampler(config.vocab_size)
+        # self.sampler = Sampler(config.vocab_size)
+
+        if hasattr(config, "sampler_vocab_size"):
+            self.sampler = Sampler(config.sampler_vocab_size)
+        else:
+            self.sampler = Sampler(config.vocab_size)
 
     def forward(
         self,
@@ -270,9 +282,10 @@ class PhiForCausalLM(nn.Module):
         positions: torch.Tensor,
         kv_caches: List[KVCache],
         input_metadata: InputMetadata,
+        prefix_kv_caches: List[KVCache],
     ) -> torch.Tensor:
         hidden_states = self.transformer(input_ids, positions, kv_caches,
-                                         input_metadata)
+                                         input_metadata, prefix_kv_caches)
         hidden_states = self.lm_head.ln(hidden_states)
         return hidden_states
 
