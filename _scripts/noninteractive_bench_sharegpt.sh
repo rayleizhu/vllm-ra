@@ -1,9 +1,10 @@
 #!/bin/bash
 
-PREFIX_LENs=( 512 1024 2048 256 128 64)
+PREFIX_LENs=( 512 1024 )
 BACKENDs=( vllm+ vllm )
 NUM_REQS=1000
-MODELs=( meta-llama/Llama-2-7b-hf meta-llama/Llama-2-13b-hf )
+# MODELs=( meta-llama/Llama-2-7b-hf meta-llama/Llama-2-13b-hf )
+MODELs=( mistralai/Mistral-7B-v0.1 )
 # model="TheBloke/Llama-2-7b-Chat-AWQ"
 # model="facebook/opt-125m"
 

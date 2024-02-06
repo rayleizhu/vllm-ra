@@ -209,7 +209,7 @@ class MistralDecoderLayer(nn.Module):
             hidden_states=hidden_states,
             kv_cache=kv_cache,
             input_metadata=input_metadata,
-            refix_kv_cache=prefix_kv_cache
+            prefix_kv_cache=prefix_kv_cache
         )
 
         # Fully Connected
