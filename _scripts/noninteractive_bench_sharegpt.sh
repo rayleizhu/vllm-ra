@@ -1,7 +1,7 @@
 #!/bin/bash
 
-PREFIX_LENs=( 512 1024 2048 64 128 256 )
-BACKENDs=( vllm+ )
+PREFIX_LENs=( 512 1024 2048 256 128 64)
+BACKENDs=( vllm+ vllm )
 NUM_REQS=1000
 MODELs=( meta-llama/Llama-2-7b-hf meta-llama/Llama-2-13b-hf )
 # model="TheBloke/Llama-2-7b-Chat-AWQ"
@@ -27,6 +27,7 @@ for MODEL in ${MODELs[@]}; do
                 --prefix-len $PREFIX_LEN \
                 --num-prompts $NUM_REQS \
                 --output-dir $OUTPUT_DIR \
+                --load-format dummy \
                 2>&1 | tee -a $OUTPUT_DIR/${NOW}.log
             sleep 1
         done

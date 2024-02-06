@@ -2,9 +2,13 @@
 
 export HF_HOME=/mnt/cachenew2/zhulei1/huggingface
 
-PREFIX_LENs=( 512 1024 2048 64 128 256 )
+# PREFIX_LENs=( 512 1024 2048 64 128 256 )
+PREFIX_LENs=( 512 1024 2048 )
+BACKENDs=( vllm+ vllm )
 NUM_REQS=1000
-MODELs=( $HF_HOME/local/Llama-2-7b-hf $HF_HOME/local/Llama-2-13b-hf )
+# MODELs=( $HF_HOME/local/Llama-2-7b-hf $HF_HOME/local/Llama-2-13b-hf )
+MODELs=( $HF_HOME/local/Llama-2-70b-hf )
+TP=2
 # model="TheBloke/Llama-2-7b-Chat-AWQ"
 # model="facebook/opt-125m"
 
@@ -18,10 +22,10 @@ for MODEL in ${MODELs[@]}; do
         model_id=$( basename $MODEL )
         echo $model_id
         # echo $model_id
-        OUTPUT_DIR=outputs/noninteractive_bench_sharegpt/${GPU}/${model_id}/nreqs_${NUM_REQS}.prefixlen_${PREFIX_LEN}.backend_vllm+pc
+        OUTPUT_DIR=outputs/noninteractive_bench_sharegpt/${GPU}/${model_id}.tp${TP}/nreqs_${NUM_REQS}.prefixlen_${PREFIX_LEN}.backend_vllm+pc
         mkdir -p $OUTPUT_DIR
         export TOKENIZERS_PARALLELISM=true && \
-        srun -p replacement --gres=gpu:1 --ntasks-per-node=1 --ntasks=1 \
+        srun -p replacement --gres=gpu:8 --ntasks-per-node=1 --ntasks=1 \
         python benchmarks/benchmark_throughput.py \
             --backend vllm+ \
             --dataset $DATA_JSON\
@@ -29,6 +33,7 @@ for MODEL in ${MODELs[@]}; do
             --prefix-len $PREFIX_LEN \
             --num-prompts $NUM_REQS \
             --output-dir $OUTPUT_DIR \
+            --tensor-parallel-size $TP \
             2>&1 >> $OUTPUT_DIR/${NOW}.log &
         sleep 1
     done
