@@ -45,25 +45,9 @@ class Worker:
         self.cache_engine = None
         self.cache_events = None
         self.gpu_cache = None
-
-        # relay attention will use a separate kv cache for the shared prefix
-        if self.model_config.enable_relay_attention:
-            max_len = self.model_config.max_model_len
-            n_kvheads = self.model_config.get_num_kv_heads(self.parallel_config)
-            head_dim = self.model_config.get_head_size()
-            n_layers = self.model_config.get_num_layers(self.parallel_config)
-            # FIXME (ray): put it to a seprate and call in llm_engine avoid wrong tensor placement in distributed mode
-            self.prefix_gpu_cache = [(torch.empty(1, max_len, n_kvheads, head_dim,
-                                                  dtype=self.model_config.dtype,
-                                                  device='cuda'),
-                                      torch.empty(1, max_len, n_kvheads, head_dim,
-                                                  dtype=self.model_config.dtype,
-                                                  device='cuda')) 
-                                      for _ in range(n_layers) ]
-        else:
-            # use a placeholder to keep consistent interface
-            n_layers = self.model_config.get_num_layers(self.parallel_config)
-            self.prefix_gpu_cache = [(None, None) for _ in range(n_layers) ]
+        # use a separate cache for system KVs, init it in self.init_prefix_cache()
+        n_layers = self.model_config.get_num_layers(self.parallel_config)
+        self.prefix_gpu_cache = [(None, None) for _ in range(n_layers) ]
         
     def init_model(self) -> None:
         # torch.distributed.all_reduce does not free the input tensor until
@@ -136,6 +120,25 @@ class Worker:
         self.model_runner.fill_prefix_kv_cache(prefix_token_ids, self.prefix_gpu_cache)
         torch.cuda.synchronize()
 
+    def init_prefix_cache(self) -> None:
+        # relay attention will use a separate kv cache for the shared prefix
+        if self.model_config.enable_relay_attention:
+            max_len = self.model_config.max_model_len
+            n_kvheads = self.model_config.get_num_kv_heads(self.parallel_config)
+            head_dim = self.model_config.get_head_size()
+            n_layers = self.model_config.get_num_layers(self.parallel_config)
+            self.prefix_gpu_cache = [(torch.empty(1, max_len, n_kvheads, head_dim,
+                                                  dtype=self.model_config.dtype,
+                                                  device='cuda'),
+                                      torch.empty(1, max_len, n_kvheads, head_dim,
+                                                  dtype=self.model_config.dtype,
+                                                  device='cuda')) 
+                                      for _ in range(n_layers) ]
+        else:
+            # use a placeholder to keep consistent interface
+            n_layers = self.model_config.get_num_layers(self.parallel_config)
+            self.prefix_gpu_cache = [(None, None) for _ in range(n_layers) ]
+        
     def init_cache_engine(self, cache_config: CacheConfig) -> None:
         self.cache_config = cache_config
         self.cache_engine = CacheEngine(self.cache_config, self.model_config,
