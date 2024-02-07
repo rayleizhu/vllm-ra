@@ -1,9 +1,10 @@
 #!/bin/bash
 
-PREFIX_LENs=( 512 1024 2048 64 128 256 )
+PREFIX_LENs=( 512 1024 2048 )
 BACKENDs=( vllm+ )
 NUM_REQS=1000
-MODELs=( meta-llama/Llama-2-7b-hf meta-llama/Llama-2-13b-hf )
+# MODELs=( meta-llama/Llama-2-7b-hf meta-llama/Llama-2-13b-hf )
+MODELs=( mistralai/Mistral-7B-v0.1 microsoft/phi-2 )
 # model="TheBloke/Llama-2-7b-Chat-AWQ"
 # model="facebook/opt-125m"
 
@@ -25,10 +26,10 @@ for MODEL in ${MODELs[@]}; do
                 --backend $BACKEND \
                 --dataset $DATA_JSON\
                 --model $MODEL \
-                --load-format dummy \
                 --prefix-len $PREFIX_LEN \
                 --num-prompts $NUM_REQS \
                 --output-dir $OUTPUT_DIR \
+                --load-format dummy \
                 2>&1 | tee -a $OUTPUT_DIR/${NOW}.log
             sleep 1
         done
