@@ -1,0 +1,53 @@
+Please answer single choice questions directly. Do not output any other things except your choice in A, B, C, D.  Below are some examples.
+
+There is a single choice question about high school european history. Answer the question by replying A, B, C or D.
+Question: This question refers to the following information.
+The following excerpt is from a pamphlet.
+You will do me the justice to remember, that I have always strenuously supported the Right of every man to his own opinion, however different that opinion might be to mine. He who denies to another this right, makes a slave of himself to his present opinion, because he precludes himself the right of changing it.
+The most formidable weapon against errors of every kind is Reason.nA. The ideas of personal liberty and nationalism conceived during the Enlightenment resulted in radical revolutions that could spread throughout Europe.
+B. The conquest of Europe by Napoleon led to the creation of new factions and shifted the European balance of power.
+C. The power of monarchs had grown to the point where it needed to be checked by other powers within each nation or domination of civilians would occur.
+D. The rising and falling economic cycle of the newly emerging capitalist economy could lead to civilian unrest that must be suppressed.
+Answer: 
+A
+
+There is a single choice question about high school european history. Answer the question by replying A, B, C or D.
+Question: This question refers to the following information.
+In Russia there was nothing going on well, and [Souvarine] was in despair over the news he had received. His old companions were all turning to the politicians; the famous Nihilists who made Europe tremble-sons of village priests, of the lower middle class, of tradesmen-could not rise above the idea of national liberation, and seemed to believe that the world would be delivered-when they had killed their despot&…
+"Foolery! They'll never get out of it with their foolery."
+Then, lowering his voice still more, in a few bitter words he described his old dream of fraternity. He had renounced his rank and his fortune; he had gone among workmen, only in the hope of seeing at last the foundation of a new society of labour in common. All the sous in his pockets had long gone to the urchins of the settlement; he had been as tender as a brother with the colliers, smiling at their suspicion, winning them over by his quiet workmanlike ways and his dislike of chattering. But decidedly the fusion had not taken place.
+His voice changed, his eyes grew bright, he fixed them on étienne, directly addressing him:
+"Now, do you understand that? These hatworkers at Marseilles who have won the great lottery prize of a hundred thousand francs have gone off at once and invested it, declaring that they are going to live without doing anything! Yes, that is your idea, all of you French workmen; you want to unearth a treasure in order to devour it alone afterwards in some lazy, selfish corner. You may cry out as much as you like against the rich, you haven't got courage enough to give back to the poor the money that luck brings you. You will never be worthy of happiness as long as you own anything, and your hatred of the bourgeois proceeds solely from an angry desire to be bourgeois yourselves in their place."
+émile Zola, French writer, Germinal, 1885
+The passage displays the direct concern for the welfare of the working classes that was typically a part of which movement?
+A. Capitalist
+B. Scientific
+C. Communist
+D. Existentialist
+Answer: 
+C
+
+There is a single choice question about high school european history. Answer the question by replying A, B, C or D.
+Question: This question refers to the following information.
+The excerpts below are from the Navigation Acts of 1651.
+[A]fter the first day of December, one thousand six hundred fifty and one, and from thence forwards, no goods or commodities whatsoever of the growth, production or manufacture of Asia, Africa or America, or of any part thereof; or of any islands belonging to them, or which are described or laid down in the usual maps or cards of those places, as well of the English plantations as others, shall be imported or brought into this Commonwealth of England, or into Ireland, or any other lands, islands, plantations, or territories to this Commonwealth belonging, or in their possession, in any other ship or ships, vessel or vessels whatsoever, but only in such as do truly and without fraud belong only to the people of this Commonwealth, or the plantations thereof, as the proprietors or right owners thereof; and whereof the master and mariners are also of the people of this Commonwealth, under the penalty of the forfeiture and loss of all the goods that shall be imported contrary to this act, , , ,
+[N]o goods or commodities of the growth, production, or manufacture of Europe, or of any part thereof, shall after the first day of December, one thousand six hundred fifty and one, be imported or brought into this Commonwealth of England, or any other lands or territories to this Commonwealth belonging, or in their possession, in any ship or ships, vessel or vessels whatsoever, but in such as do truly and without fraud belong only to the people of this Commonwealth, and in no other, except only such foreign ships and vessels as do truly and properly belong to the people of that country or place, of which the said goods are the growth, production or manufacture.
+Which of the following best describes the outcome of the Navigation Acts of 1651?
+A. They served as a catalyst for the growth of English shipping and overseas trade, but did little to limit the prospects of the Dutch in the seventeenth century.
+B. They brought about almost immediate hardships for the Dutch economy as their dominance of overseas trade quickly ended.
+C. They were rescinded during the restoration of the Stuarts as they sought normal diplomatic relations with the Dutch so not as to need Parliament's financial support for war.
+D. They led to nearly a century of recurrent war between England and the Netherlands, which would not end until after American independence.
+Answer: 
+A
+
+There is a single choice question about high school european history. Answer the question by replying A, B, C or D.
+Question: This question refers to the following information.
+Albeit the king's Majesty justly and rightfully is and ought to be the supreme head of the Church of England, and so is recognized by the clergy of this realm in their convocations, yet nevertheless, for corroboration and confirmation thereof, and for increase of virtue in Christ's religion within this realm of England, and to repress and extirpate all errors, heresies, and other enormities and abuses heretofore used in the same, be it enacted, by authority of this present Parliament, that the king, our sovereign lord, his heirs and successors, kings of this realm, shall be taken, accepted, and reputed the only supreme head in earth of the Church of England, called Anglicans Ecclesia; and shall have and enjoy, annexed and united to the imperial crown of this realm, as well the title and style thereof, as all honors, dignities, preeminences, jurisdictions, privileges, authorities, immunities, profits, and commodities to the said dignity of the supreme head of the same Church belonging and appertaining; and that our said sovereign lord, his heirs and successors, kings of this realm, shall have full power and authority from time to time to visit, repress, redress, record, order, correct, restrain, and amend all such errors, heresies, abuses, offenses, contempts, and enormities, whatsoever they be, which by any manner of spiritual authority or jurisdiction ought or may lawfully be reformed, repressed, ordered, redressed, corrected, restrained, or amended, most to the pleasure of Almighty God, the increase of virtue in Christ's religion, and for the conservation of the peace, unity, and tranquility of this realm; any usage, foreign land, foreign authority, prescription, or any other thing or things to the contrary hereof notwithstanding.
+English Parliament, Act of Supremacy, 1534
+From the passage, one may infer that the English Parliament wished to argue that the Act of Supremacy would
+A. give the English king a new position of authority
+B. give the position of head of the Church of England to Henry VIII alone and exclude his heirs
+C. establish Calvinism as the one true theology in England
+D. end various forms of corruption plaguing the Church in England
+Answer: 
+D

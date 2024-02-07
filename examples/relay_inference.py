@@ -8,7 +8,8 @@ prompts = [
     "Who are you ?",
     "What can you do ?",
     "What's your name ?",
-    "There is a llama in my garden, what should I do ?"
+    "There is a llama in my garden, what should I do ?",
+    "Hello Hello Hello Hello"
 ]
 # Create a sampling params object.
 sampling_params = SamplingParams(temperature=0.8, top_p=0.95, max_tokens=256)
