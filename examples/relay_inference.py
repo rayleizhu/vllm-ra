@@ -8,7 +8,8 @@ prompts = [
     "Who are you ?",
     "What can you do ?",
     "What's your name ?",
-    "There is a llama in my garden, what should I do ?"
+    "There is a llama in my garden, what should I do ?",
+    "Hello Hello Hello Hello"
 ]
 # Create a sampling params object.
 sampling_params = SamplingParams(temperature=0.8, top_p=0.95, max_tokens=256)
@@ -50,10 +51,13 @@ sys_schema = "[INST] <<SYS>>\n{__SYS_PROMPT}\n<</SYS>>\n\n{__USR_PROMPT} [/INST]
 # with open('outputs/sys_prompt.txt', 'w') as f:
 #     f.write(system_prompt)
 
-sys_schema = None
-system_prompt = None
-sys_schema_file = 'outputs/schema.txt'
-sys_prompt_file = 'outputs/sys_prompt.txt'
+# sys_schema = None
+# system_prompt = None
+# sys_schema_file = 'outputs/schema.txt'
+# sys_prompt_file = 'outputs/sys_prompt.txt'
+
+sys_schema_file = None
+sys_prompt_file = None
 
 # with open('outputs/schema.txt', 'r') as f:
 #     sys_schema = f.read()

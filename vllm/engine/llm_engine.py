@@ -347,8 +347,12 @@ class LLMEngine:
         #         )
             
             # FIXME (ray): there may be bugs in the tokenizer with relay attention
-            # if self.model_config.enable_relay_attention:
-            #     prompt_token_ids=prompt_token_ids[1:]
+            # this is a hack
+            if self.model_config.enable_relay_attention:
+                prompt_token_ids=prompt_token_ids[1:]
+                
+            print(prompt_token_ids)
+            print(self.tokenizer.decode(prompt_token_ids))
 
         # Create the sequences.
         block_size = self.cache_config.block_size
