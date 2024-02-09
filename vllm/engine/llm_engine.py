@@ -332,6 +332,8 @@ class LLMEngine:
         if prompt_token_ids is None:
             assert prompt is not None
             if self.sys_prompt_config.has_sys_prompt:
+                # only if we choose to specify the prompt and template during initialization
+                # the prompt will be formatted automatically
                 prompt = self.sys_prompt_config.get_formatted_request(
                     user_prompt=prompt,
                     include_sys_prompt=(not self.model_config.enable_relay_attention)
@@ -351,8 +353,8 @@ class LLMEngine:
             if self.model_config.enable_relay_attention:
                 prompt_token_ids=prompt_token_ids[1:]
                 
-            print(prompt_token_ids)
-            print(self.tokenizer.decode(prompt_token_ids))
+            # print(prompt_token_ids)
+            # print(self.tokenizer.decode(prompt_token_ids))
 
         # Create the sequences.
         block_size = self.cache_config.block_size
