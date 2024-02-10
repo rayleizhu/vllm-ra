@@ -5,7 +5,7 @@ MMLU_ROOT=/mnt/lustrenew/zhulei1/ssd_cache/opencompass/data/mmlu
 GPU=A100
 
 NSHOTs=( 5 3 1 )
-OUT_LENs=( 32 )
+OUT_LENs=( 64 128 )
 ENABLE_RELAYs=( true )
 MODELs=( $HF_HOME/local/Llama-2-7b-hf $HF_HOME/local/Llama-2-13b-hf )
 DTYPE='float16'
