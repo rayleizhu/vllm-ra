@@ -4,7 +4,7 @@ export HF_HOME=/mnt/cachenew2/zhulei1/huggingface
 
 # PREFIX_LENs=( 512 1024 2048 64 128 256 )
 PREFIX_LENs=( 512 1024 2048 )
-BACKENDs=( vllm+ vllm )
+BACKENDs=( vllm+ )
 NUM_REQS=1000
 # MODELs=( $HF_HOME/local/Llama-2-7b-hf $HF_HOME/local/Llama-2-13b-hf )
 # MODELs=( $HF_HOME/local/Llama-30b )
@@ -24,7 +24,7 @@ for MODEL in ${MODELs[@]}; do
             model_id=$( basename $MODEL )
             echo $model_id
             # echo $model_id
-            OUTPUT_DIR=outputs/noninteractive_bench_sharegpt/${GPU}/${model_id}.tp${TP}/nreqs_${NUM_REQS}.prefixlen_${PREFIX_LEN}.backend_${BACKEND}
+            OUTPUT_DIR=outputs/noninteractive_bench_sharegpt/${GPU}/${model_id}.tp${TP}/nreqs_${NUM_REQS}.prefixlen_${PREFIX_LEN}.backend_vllm+pc
             mkdir -p $OUTPUT_DIR
             export TOKENIZERS_PARALLELISM=true && \
             srun -p replacement --gres=gpu:8 --ntasks-per-node=1 --ntasks=1 --quotatype auto \
