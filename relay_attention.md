@@ -1,8 +1,5 @@
 
-
-
-
-## Interface of model forward
+## Code Analysis
 
 * model.forward()
     - [ModelRunner.execute_model()](vllm/worker/model_runner.py)
@@ -24,10 +21,6 @@
     - kv_caches and prefix_kv_caches are both allocated buffers
     - prefix_kv_caches are the allocated buffers if enable_relay_attention 
 
-## Issues
-
-* relay attention may not work properly for window attention
-
 ## TODOs
 
 - [x] finish implemenation
@@ -48,22 +41,11 @@
     - [x] throughput ~~& latency~~ for real workload (ShareGPT dataset), plot figures
 - benchmark for interactive aplications (exp group 2)
     - [x] throughput, latency to first token, latency to susequent tokens w/ ShareGPT dataset 
-- [ ] check if we need to change the behavior of tokenizer (e.g. avoid prepending bos token)
+- check if we need to change the behavior of tokenizer (e.g. avoid prepending bos token)
     - https://huggingface.co/docs/transformers/main_classes/tokenizer
-
-## Usage
-
-1. benchmark throughputs
-
-```bash
-python benchmarks/benchmark_throughput.py --backend vllm+ --prefix-len 1024 --input-len 128 --output-len 256
-```
-
-2. sample dialogue examples 
-
-```bash
-python examples/relay_inference.py
-```
+    - [x] currently HACKED, see [vllm/engine/llm_engine.py, add_request()](vllm/engine/llm_engine.py)
+- [ ] adaptations for the cases where window attention is used and sequence length > window size
+- [ ] adaptations to support ALiBi 
 
 ## Trouble shooting
 
@@ -84,13 +66,12 @@ python examples/relay_inference.py
 ## Useful links
 
 - [Change the huggingface cache directory](https://stackoverflow.com/a/77682809)
-- [+34% higher throughput? #421](https://github.com/vllm-project/vllm/issues/421)
-- [Chat prompt format?](https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGML/discussions/3#64b71f7588b86014d7e2dd71)
 - [LLaMA v1/2模型结构总览](https://zhuanlan.zhihu.com/p/636784644)
 
 ## Chat Templates
 
 - [Mixtra-7B](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1/discussions/73)
+- [Llama2-chat](https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGML/discussions/3#64b71f7588b86014d7e2dd71)
 
 
     
