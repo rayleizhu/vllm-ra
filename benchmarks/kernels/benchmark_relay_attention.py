@@ -6,6 +6,7 @@ import time
 import os.path as osp
 import json
 import sys
+import os
 
 from vllm.model_executor.layers.attention import PagedAttention
 from vllm.model_executor.input_metadata import InputMetadata
@@ -15,6 +16,13 @@ PARTITION_SIZE = 512
 
 @torch.inference_mode()
 def main(args):
+    rank = int(os.getenv("RANK", "-1"))
+    local_rank = int(os.getenv("LOCAL_RANK", "0"))
+    cuda_visible_device = int(os.getenv('CUDA_VISIBLE_DEVICES'))
+    slurm_proc_id = int(os.getenv('SLURM_PROCID'))
+
+    print(dict(rank=rank, local_rank=local_rank, cuda_visible_device=cuda_visible_device, slurm_proc_id=slurm_proc_id))
+
     assert args.num_query_heads % args.num_kv_heads == 0
 
     query_dim = args.head_size * args.num_query_heads
@@ -34,6 +42,10 @@ def main(args):
     query:Tensor = torch.empty(args.num_reqs, input_len,
         query_dim, dtype=args.dtype, device="cuda")
     query.uniform_(-scale, scale)
+
+    # print(torch.cuda.device_count())
+    # print(query.get_device())
+    # print(torch.cuda.current_device())
 
     key:Tensor = torch.empty(args.num_reqs, input_len,
         kv_dim, dtype=args.dtype, device='cuda')
