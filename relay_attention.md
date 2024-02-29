@@ -45,9 +45,9 @@
 - benchmark for non-interactive applications (exp group 1)
     - [x] throughput ~~& latency~~ for synthetic workload, plot figures
         - (partially) fixed [a bug of vllm](https://github.com/vllm-project/vllm/pull/2398/files/66f1e084c31e09e5225783b3e18659ca5deebaf6) for OPT and LLAMA models
-    - [ ] throughput ~~& latency~~ for real workload (ShareGPT dataset), plot figures -> ongoing
+    - [x] throughput ~~& latency~~ for real workload (ShareGPT dataset), plot figures
 - benchmark for interactive aplications (exp group 2)
-    - [ ] throughput, latency to first token, latency to susequent tokens w/ ShareGPT dataset 
+    - [x] throughput, latency to first token, latency to susequent tokens w/ ShareGPT dataset 
 - [ ] check if we need to change the behavior of tokenizer (e.g. avoid prepending bos token)
     - https://huggingface.co/docs/transformers/main_classes/tokenizer
 
@@ -86,6 +86,11 @@ python examples/relay_inference.py
 - [Change the huggingface cache directory](https://stackoverflow.com/a/77682809)
 - [+34% higher throughput? #421](https://github.com/vllm-project/vllm/issues/421)
 - [Chat prompt format?](https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGML/discussions/3#64b71f7588b86014d7e2dd71)
+- [LLaMA v1/2模型结构总览](https://zhuanlan.zhihu.com/p/636784644)
+
+## Chat Templates
+
+- [Mixtra-7B](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1/discussions/73)
 
 
     
