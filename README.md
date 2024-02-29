@@ -14,7 +14,7 @@ A vLLM fork with RelayAttention implemented. See the paper for details: [RelayAt
 
 You can use [examples/relay_inference.py](examples/relay_inference.py) as the entrance for exploration of this project. See Figure 9 in the paper for a big picture.
 <p align="left">
-<img src="assets/big_picture.png" width=60% height=60% 
+<img src="_assets/big_picture.png" width=60% height=60% 
 class="center">
 </p>
 
